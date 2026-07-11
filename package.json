@@ -1,0 +1,75 @@
+{
+  "name": "@craigruks/x402-server-guard",
+  "version": "0.1.0",
+  "description": "Server-side hardening middleware for x402 payment endpoints — mitigations for settlement races, replay, cross-resource substitution, and cache leakage. Not a security guarantee.",
+  "keywords": [
+    "x402",
+    "payments",
+    "security",
+    "middleware",
+    "hardening",
+    "replay-protection",
+    "agentic-payments",
+    "web3"
+  ],
+  "license": "MIT",
+  "author": "Craig Ruks",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/craigruks/x402-server-guard.git"
+  },
+  "homepage": "https://github.com/craigruks/x402-server-guard#readme",
+  "bugs": {
+    "url": "https://github.com/craigruks/x402-server-guard/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "lint:filelength": "tsx scripts/lint-file-length.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run lint:filelength && npm run test",
+    "check:pkg": "publint --strict && attw --pack . --ignore-rules cjs-resolves-to-esm",
+    "prepublishOnly": "npm run build && npm run check:pkg",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "changeset publish"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@biomejs/biome": "2.3.7",
+    "@changesets/cli": "2.31.0",
+    "@types/node": "26.1.1",
+    "publint": "0.3.21",
+    "tsx": "4.23.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}
