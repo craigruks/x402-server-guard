@@ -12,13 +12,17 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Support floor (package.json "engines") and the local/dev LTS (mise.toml).
+        node-version: [22, 24]
     steps:
       # NOTE: pin these to full commit SHAs before first publish (supply-chain
       # hardening). Left as tags during scaffold; tracked as a follow-up.
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
       - run: npm run typecheck

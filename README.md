@@ -51,6 +51,19 @@ proving it blocked by the guard.
 | Cache leakage of paid content | planned |
 | Grant-before-finality (k-confirmations) | planned |
 
+## Development
+
+The local toolchain is pinned with [mise](https://mise.jdx.dev):
+
+```sh
+mise install   # installs the Node version in mise.toml (Active LTS)
+npm ci         # installs the dev toolchain, exact-pinned
+npm run check  # typecheck + lint + file-length + tests
+```
+
+Node 24 (Active LTS) is used locally; the published package supports Node ≥22,
+and CI tests both. `npm run build` emits the package with plain `tsc`.
+
 ## License
 
 [MIT](./LICENSE) © Craig Ruks

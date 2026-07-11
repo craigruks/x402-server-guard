@@ -1,0 +1,10 @@
+# Local toolchain, managed by mise (https://mise.jdx.dev).
+#
+# Node 24 is the Active LTS line (as of 2026); it ships npm 11.x, which supports
+# the OIDC trusted publishing this project releases with. Run `mise install` to
+# match the toolchain contributors and CI use.
+#
+# The published package supports Node >=22 (see package.json "engines"); CI tests
+# both that floor and this LTS. We develop on the LTS, support down to the floor.
+[tools]
+node = "24"
