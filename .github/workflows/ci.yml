@@ -17,10 +17,10 @@ jobs:
         # Support floor (package.json "engines") and the local/dev LTS (mise.toml).
         node-version: [22, 24]
     steps:
-      # NOTE: pin these to full commit SHAs before first publish (supply-chain
-      # hardening). Left as tags during scaffold; tracked as a follow-up.
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Actions pinned to full commit SHAs (supply-chain hardening); Dependabot
+      # bumps both the SHA and the version comment.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
