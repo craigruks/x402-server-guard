@@ -1,6 +1,6 @@
 /**
- * File-length ceiling. Source files must stay small enough to read at a glance —
- * this keeps modules intuitive for humans and agents alike.
+ * File-length ceiling. Source files stay small enough to read at a glance, so
+ * modules stay easy to follow for humans and agents.
  *
  * Greenfield policy: a hard cap on every touched source file (no grandfathering).
  * Tests and declaration files are exempt.
@@ -9,7 +9,7 @@
  *   tsx scripts/lint-file-length.ts --staged   # only staged files (pre-commit)
  */
 import { execSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const MAX_LINES = 200;
 const EXCLUDE = /\.(test|spec)\.ts$|\.d\.ts$/;
@@ -27,13 +27,10 @@ function targetFiles(): string[] {
 
 const violations: string[] = [];
 for (const file of targetFiles()) {
-  let contents: string;
-  try {
-    contents = readFileSync(file, "utf8");
-  } catch {
+  if (!existsSync(file)) {
     continue; // staged-then-deleted edge case
   }
-  const lines = contents.split("\n").length;
+  const lines = readFileSync(file, "utf8").split("\n").length;
   if (lines > MAX_LINES) {
     violations.push(`  ${file}: ${lines} lines (max ${MAX_LINES})`);
   }
@@ -42,7 +39,7 @@ for (const file of targetFiles()) {
 if (violations.length > 0) {
   console.error(`✗ File-length limit exceeded (${MAX_LINES} lines):`);
   console.error(violations.join("\n"));
-  console.error("\nSplit these into smaller modules — keep files readable at a glance.");
+  console.error("\nSplit these into smaller modules. Keep files readable at a glance.");
   process.exit(1);
 }
 
