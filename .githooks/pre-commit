@@ -1,0 +1,11 @@
+#!/bin/sh
+# Fast, staged-only pre-commit gate. Keep this under ~2s so it never slows
+# down a commit-heavy workflow. Deeper checks (typecheck, tests, packaging)
+# run in CI, not here.
+set -e
+
+# 1. Format + lint the staged files (Biome is fast).
+npx biome check --staged --no-errors-on-unmatched
+
+# 2. File-length ceiling on touched source files.
+npx tsx scripts/lint-file-length.ts --staged
