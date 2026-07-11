@@ -8,3 +8,6 @@
 # both that floor and this LTS. We develop on the LTS, support down to the floor.
 [tools]
 node = "24"
+# `just` runs the repo command index (see justfile). Not build-critical —
+# dev tooling lives in package.json — but pinned so `just --list` works for all.
+just = "1.55.1"

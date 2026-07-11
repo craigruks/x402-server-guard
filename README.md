@@ -56,13 +56,18 @@ proving it blocked by the guard.
 The local toolchain is pinned with [mise](https://mise.jdx.dev):
 
 ```sh
-mise install   # installs the Node version in mise.toml (Active LTS)
+mise install   # installs Node (Active LTS) + just from mise.toml
 npm ci         # installs the dev toolchain, exact-pinned
-npm run check  # typecheck + lint + file-length + tests
+just           # lists every repo command
+just check     # full local gate: typecheck + lint + file-length + tests
 ```
 
 Node 24 (Active LTS) is used locally; the published package supports Node ≥22,
 and CI tests both. `npm run build` emits the package with plain `tsc`.
+
+Dev tooling lives in `package.json` scripts (`npm run …`); the [`justfile`](./justfile)
+is the discoverable index for repo operations that aren't npm — supply-chain
+checks, CI, release prep. Run `just` to see them all.
 
 ## License
 
