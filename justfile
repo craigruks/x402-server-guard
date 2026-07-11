@@ -53,6 +53,12 @@ verify-pins:
 pr:
     gh pr view --web
 
+# Apply the main-protection ruleset (needs the repo public or on GitHub Pro).
+protect-main:
+    # Requires PR + green CI + linear history; blocks force-push/deletion.
+    # Run this at the public-reveal moment — 403s while private on the Free plan.
+    gh api -X POST repos/{owner}/{repo}/rulesets --input .github/rulesets/protect-main.json
+
 # --- release ---
 
 # Create a changeset describing the current change.
