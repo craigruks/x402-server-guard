@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Support floor (package.json "engines") and the local/dev LTS (mise.toml).
+        node-version: [22, 24]
+    steps:
+      # Actions pinned to full commit SHAs (supply-chain hardening); Dependabot
+      # bumps both the SHA and the version comment.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run lint:filelength
+      - run: npm test
+      - run: npm run build
+      - run: npm run check:pkg
