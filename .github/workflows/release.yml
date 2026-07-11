@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # changesets opens/updates the release PR
+  pull-requests: write
+  id-token: write # OIDC trusted publishing + provenance (no NPM_TOKEN)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # NOTE: pin these to full commit SHAs before first publish.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+      # Trusted publishing (OIDC) requires npm >= 11.5.1; setup-node ships older.
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - run: npm run build
+      # Publishes via npm trusted publishing — configure the trusted publisher
+      # for this repo + workflow on npmjs.org BEFORE the first release. No
+      # long-lived token is used; provenance is attached automatically.
+      - uses: changesets/action@v1
+        with:
+          publish: npm run release
