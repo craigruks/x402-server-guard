@@ -49,10 +49,6 @@ verify-pins:
           fi
         done
 
-# Watch CI checks for the current branch's PR.
-ci-watch:
-    gh pr checks --watch --interval 10
-
 # Open the current branch's PR in a browser.
 pr:
     gh pr view --web
