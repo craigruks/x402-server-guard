@@ -1,0 +1,14 @@
+language js
+
+// Ban ad-hoc try/catch and try/finally everywhere. The only sanctioned
+// throw-boundary is tryCatch / tryCatchAsync in src/result.ts. Return a
+// Result instead of catching. See src/result.ts for the rationale.
+or {
+  JsTryStatement(),
+  JsTryFinallyStatement()
+} as $stmt where {
+  register_diagnostic(
+    span = $stmt,
+    message = "No try/catch. Return a Result, or wrap the throwing call once with tryCatch/tryCatchAsync from src/result.ts."
+  )
+}
