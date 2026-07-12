@@ -63,7 +63,8 @@
     "release": "changeset publish",
     "test:coverage": "vitest run --coverage",
     "smoke:dist": "npm run build && node scripts/smoke-dist.mjs",
-    "example": "tsx examples/secure-flow.ts"
+    "example": "tsx examples/secure-flow.ts",
+    "example:hono": "tsx examples/hono-server.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
@@ -72,6 +73,7 @@
     "@types/node": "26.1.1",
     "@vitest/coverage-v8": "4.1.10",
     "@x402/core": "2.18.0",
+    "hono": "4.12.29",
     "publint": "0.3.21",
     "tsx": "4.23.0",
     "typescript": "7.0.2",

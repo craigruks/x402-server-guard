@@ -12,7 +12,16 @@
  * point the second fetch here falls through to a payment-required response.
  */
 import { describe, expect, it } from "vitest";
-import { CachingProxy, createTestbed, makePayment, SharedCache } from "../harness/index.js";
+import { createGuard } from "../../src/index.js";
+import {
+  CachingProxy,
+  createTestbed,
+  FakeChain,
+  FakeFacilitator,
+  GuardedResourceServer,
+  makePayment,
+  SharedCache,
+} from "../harness/index.js";
 
 const RESOURCE_URL = "https://api.example.com/premium.json";
 
@@ -51,5 +60,33 @@ describe("attack: cache leakage of paid content", () => {
     expect(cold.served).toBeUndefined();
     expect(cold.paid).toBe(false);
     expect(cold.fromCache).toBe(false);
+  });
+});
+
+describe("guarded: cache leakage of paid content", () => {
+  it("marks paid responses uncacheable so the shared cache never stores them", async () => {
+    const chain = new FakeChain();
+    const guard = createGuard();
+    const server = new GuardedResourceServer(
+      new FakeFacilitator(chain),
+      guard,
+      () => "the-resource",
+      RESOURCE_URL,
+    );
+    const cache = new SharedCache<string>();
+    const proxy = new CachingProxy(cache, server);
+    const { payload, requirements } = makePayment({ resourceUrl: RESOURCE_URL });
+
+    // A paying client is served, but the paid response is marked no-store/private.
+    const paid = await proxy.fetch(RESOURCE_URL, { payload, requirements });
+    expect(paid.paid).toBe(true);
+    expect(paid.served).toBe("the-resource");
+
+    // The shared cache honored the directive and stored nothing, so a later unpaid
+    // client falls through to no content instead of the leaked paid response.
+    const freeloader = await proxy.fetch(RESOURCE_URL);
+    expect(freeloader.served).toBeUndefined();
+    expect(freeloader.fromCache).toBe(false);
+    expect(cache.hitCount).toBe(0);
   });
 });

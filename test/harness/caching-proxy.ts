@@ -10,8 +10,17 @@
  * responses private, at which point this cache never stores them.
  */
 import type { PaymentPayload, PaymentRequirements } from "@x402/core/types";
-import type { BaselineResourceServer } from "./baseline-server.js";
+import { isStorableBySharedCache } from "../../src/cache.js";
 import type { SharedCache } from "./shared-cache.js";
+import type { GrantResult } from "./types.js";
+
+/** Minimal resource-server shape the proxy fronts: baseline or guarded. */
+export interface ProxiedServer<TResource> {
+  handle(
+    payload: PaymentPayload,
+    requirements: PaymentRequirements,
+  ): Promise<GrantResult<TResource>>;
+}
 
 export interface FetchOutcome<TResource> {
   /** The response body, absent when the request is denied. */
@@ -30,7 +39,7 @@ export interface PaymentAttempt {
 export class CachingProxy<TResource> {
   constructor(
     private readonly cache: SharedCache<TResource>,
-    private readonly origin: BaselineResourceServer<TResource>,
+    private readonly origin: ProxiedServer<TResource>,
   ) {}
 
   /** Fetch a URL, optionally presenting a payment. */
@@ -48,9 +57,12 @@ export class CachingProxy<TResource> {
       return { fromCache: false, paid: false };
     }
 
-    // FLAW: the paid response is cached in the shared cache under the URL alone,
-    // so the next caller for this URL is served it whether or not they paid.
-    this.cache.write(url, result.resource);
+    // A correct shared cache stores the paid response only if its Cache-Control
+    // allows it. The baseline sets none, so it is stored and leaks; the guarded
+    // server marks it no-store/private, so it is never stored.
+    if (isStorableBySharedCache(result.cacheControl)) {
+      this.cache.write(url, result.resource);
+    }
     return { served: result.resource, fromCache: false, paid: true };
   }
 }

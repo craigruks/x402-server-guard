@@ -11,11 +11,10 @@ leaked to unpaid clients through a shared cache. This library is the enforcement
 layer a merchant wraps their endpoint in to close those gaps.
 
 > [!WARNING]
-> **Status: early, pre-1.0.** The duplicate-settlement race, payment replay,
-> cross-resource substitution, and grant-before-finality mitigations are
-> implemented; cache leakage is still in progress. It is **not audited** and is
-> **not a security guarantee**. Do not treat the current coverage as complete; see
-> the mitigation table below for what is and is not done.
+> **Status: early, pre-1.0.** All four enumerated attack classes below have a
+> mitigation implemented. It is **not audited** and is **not a security
+> guarantee**; it mitigates these specific classes only and cannot make an insecure
+> endpoint safe on its own. See the mitigation table for scope.
 
 ## Security disclaimer
 
@@ -59,16 +58,36 @@ return grant(resource);
 
 The reservation defaults to an in-memory store (single process). A store shared
 across serverless isolates needs a genuine atomic compare-and-set; see
-[`docs/hardening.md`](./docs/hardening.md). The one-call framework adapters
-(Express, Hono, Next, Fastify) land in a later chapter; for now this is the
-pattern to wire into a hand-rolled handler.
+[`docs/hardening.md`](./docs/hardening.md).
 
-A runnable version, including the concurrent race it blocks, is in
-[`examples/secure-flow.ts`](./examples/secure-flow.ts) (`npx tsx
-examples/secure-flow.ts`).
+### One call: `protect`
 
-This closes the duplicate-settlement race and payment replay. The other
-mitigations are still in progress; see the table below.
+`protect` runs the whole secure flow (`reserve → settle → confirm → deliver`) and
+returns the cache directives on grant, releasing the reservation if the settle
+fails or finality is not reached. It has no runtime dependencies and takes plain
+callbacks, so it drops into any framework:
+
+```ts
+import { protect } from "@craigruks/x402-server-guard";
+
+// After the facilitator verifies the payment:
+const decision = await protect(
+  guard,
+  { nonce, resource: request.url, expiresAt: Number(authorization.validBefore) },
+  { settle: () => facilitator.settle(payload, requirements), deliver: () => resource },
+);
+if (!decision.granted) return deny(decision.reason.code);
+response.headers.set("Cache-Control", decision.cacheControl);
+return grant(decision.resource);
+```
+
+Two runnable examples: [`examples/secure-flow.ts`](./examples/secure-flow.ts)
+(the concurrent race, blocked) and [`examples/hono-server.ts`](./examples/hono-server.ts)
+(a Hono route protected end to end). Bind the nonce to the **served** route (the
+request URL), not the payload's claimed resource, which is why the binding lives at
+the framework layer.
+
+All four enumerated attack classes are covered; see the table below.
 
 ## Design principles
 
@@ -95,7 +114,7 @@ proving it blocked by the guard.
 | Payment replay | done (same nonce reservation) |
 | Cross-resource substitution | done |
 | Grant-before-finality (k-confirmations) | done |
-| Cache leakage of paid content | planned |
+| Cache leakage of paid content | done |
 
 ## Development
 
