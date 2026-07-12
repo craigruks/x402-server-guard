@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["src/**", "scripts/**", "*.ts"]
+    "includes": ["src/**", "scripts/**", "test/**", "*.ts"]
   },
   "plugins": [".biome/plugins/no-try-catch.grit"],
   "formatter": {

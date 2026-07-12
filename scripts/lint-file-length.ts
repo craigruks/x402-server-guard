@@ -21,7 +21,11 @@ function targetFiles(): string[] {
     .split("\n")
     .map((f) => f.trim())
     .filter((f) => f.length > 0)
-    .filter((f) => (f.startsWith("src/") || f.startsWith("scripts/")) && f.endsWith(".ts"))
+    .filter(
+      (f) =>
+        (f.startsWith("src/") || f.startsWith("scripts/") || f.startsWith("test/")) &&
+        f.endsWith(".ts"),
+    )
     .filter((f) => !EXCLUDE.test(f));
 }
 
