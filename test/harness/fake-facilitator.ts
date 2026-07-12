@@ -2,12 +2,20 @@
  * A deterministic facilitator implementing x402's real `FacilitatorClient`
  * interface, backed by a `FakeChain`.
  *
- * It faithfully reproduces the naive facilitator's two load-bearing flaws:
+ * Trust boundary: a real facilitator verifies the EIP-3009 signature over
+ * (from, to, value, validAfter, validBefore, nonce). This fake assumes that
+ * check has already passed and treats the plaintext authorization as
+ * trustworthy. Every attack in this suite survives a correct facilitator; none
+ * of them is a forged signature.
+ *
+ * What it reproduces that a naive integration gets wrong:
  *   1. `verify()` is a read-only check with no lock on the nonce. Concurrent
  *      requests all pass while the nonce is still unconsumed.
- *   2. verification checks the financial fields (amount / asset / payTo /
- *      network) but NOT the resource. A payment authorized for one resource
- *      verifies against any equally-priced resource.
+ *   2. It checks the financial fields (amount / asset / payTo / network) and
+ *      stops there. It does not bind the payment to a resource, and it cannot:
+ *      the resource is not in the signed authorization, and the facilitator does
+ *      not know which resource the caller is serving. That binding is the
+ *      server's job (see the cross-resource-substitution reproduction).
  */
 import type { FacilitatorClient } from "@x402/core/server";
 import type {
@@ -44,7 +52,8 @@ export class FakeFacilitator implements FacilitatorClient {
     if (!financialsMatch) {
       return { isValid: false, invalidReason: "requirements-mismatch" };
     }
-    // Note: the resource is deliberately NOT checked. That is the flaw.
+    // The resource is not checked here, and cannot be: it is not in the signed
+    // authorization. Binding a payment to a resource is the server's job.
     return { isValid: true, payer: authorization.from };
   }
 

@@ -17,6 +17,8 @@ export interface TestbedOptions {
   settlementLatencyMs?: number;
   /** What the server hands back on a grant. Default returns a fixed string. */
   deliver?: (requirements: PaymentRequirements) => string;
+  /** The resource this endpoint serves, for resource-binding scenarios. */
+  resourceUrl?: string;
 }
 
 export interface Testbed {
@@ -30,6 +32,6 @@ export function createTestbed(options: TestbedOptions = {}): Testbed {
   const chain = new FakeChain(options.settlementLatencyMs);
   const facilitator = new FakeFacilitator(chain);
   const deliver = options.deliver ?? (() => "the-resource");
-  const server = new BaselineResourceServer(facilitator, deliver);
+  const server = new BaselineResourceServer(facilitator, deliver, options.resourceUrl);
   return { chain, facilitator, server };
 }
