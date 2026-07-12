@@ -61,6 +61,25 @@ describe("MemoryNonceStore", () => {
     });
   });
 
+  it("rejects a fresh reservation once at capacity, failing closed", async () => {
+    const store = new MemoryNonceStore(() => 1000, 2); // cap of 2
+    expect((await store.reserve(params("0xa", "/r", 5000))).ok).toBe(true);
+    expect((await store.reserve(params("0xb", "/r", 5000))).ok).toBe(true);
+
+    // Full: a fresh nonce is rejected as an error value (fail closed), not stored.
+    expect(await store.reserve(params("0xc", "/r", 5000))).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: "store-at-capacity" }),
+    });
+    expect(store.size).toBe(2);
+
+    // An already-reserved nonce still resolves at capacity (it needs no new slot).
+    expect(await store.reserve(params("0xa", "/other", 5000))).toEqual({
+      ok: true,
+      value: { status: "already-reserved", boundResource: "/r" },
+    });
+  });
+
   it("sweeps expired reservations but keeps still-valid ones", async () => {
     let clock = 1000;
     const store = new MemoryNonceStore(() => clock);

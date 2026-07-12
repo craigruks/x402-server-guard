@@ -65,6 +65,13 @@ This matters because common EIP-712 verifiers do not reject the high-s form:
 `recoverTypedSignature` validates the recovery id but not low-s, leaving that
 check to the caller. We sidestep the question by never keying on the signature.
 
+This immunity is joint with signature verification. The guard keys on the nonce
+the facilitator authenticated, because verify runs before reserve; a caller that
+reserves without first verifying keys on an unauthenticated, attacker-chosen
+nonce. And a distinct nonce is a distinct authorization that settles its own
+on-chain transfer: paying again with a fresh nonce is paying twice, not a
+double-spend, and is correctly out of scope.
+
 ### A distributed store must have a genuine compare-and-set
 
 The in-memory store is atomic because a synchronous JavaScript body runs to
@@ -73,33 +80,52 @@ compare-and-set: a Durable Object, Redis `SET ... NX`, or a database unique
 constraint (permit2 and CoW both rely on exactly this kind of atomic write).
 Plain get-then-put stores (Cloudflare Workers KV, S3) are not sufficient: with no
 compare-and-set, an `await` sits in the check-to-set gap and reopens the race.
-Those adapters are a later chapter, and the store docstring says so.
+Those adapters are a later chapter, and the store docstring says so. The
+compare-and-set closes the double-spend race on its own. Refusing an
+already-expired authorization atomically with it needs a Lua script or a
+constraint that encodes the expiry, not bare `SET NX`; treating the expiry as a
+separate predicate before the CAS is acceptable, since it only races `now`
+crossing a fixed `validBefore` and the on-chain check is the backstop.
 
 ## Hardening applied to the reservation
 
 Two items from cross-referencing the guard against permit2, CoW, MetaMask
 `eth-sig-util`, and Hyperliquid's signing SDK.
 
-### The validity window is enforced in the reserve step
+### The closing edge of the window is enforced in the reserve step
 
 `reserve` refuses an authorization whose window has already closed (`expiresAt <=
 now`) and returns an `expired` outcome, which the guard maps to a fail-closed
-deny. The window is checked in the same atomic step as the reservation, not a
-separate earlier gate. CoW enforces order expiry as a read-time predicate against
-a trusted clock at the moment of use
+deny. Only the closing edge is checked here; the opening edge (`validAfter`) is
+the facilitator's job, and the facilitator re-checks both edges anyway. CoW
+enforces order expiry as a read-time predicate against a trusted clock at the
+moment of use
 ([`orders.rs`](https://github.com/cowprotocol/services/blob/main/crates/database/src/orders.rs)),
 and Hyperliquid binds an absolute expiry into the signed action
 ([`signing.py`](https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/hyperliquid/utils/signing.py)).
-Splitting the window check from the reservation would reopen a time-of-check/
-time-of-use gap for a distributed store. The wired flow's facilitator verifies
-the window too; this covers a caller that invokes `reserve` directly.
+In the in-memory store the check shares the reservation's atomic tick; on a
+distributed store it may be a separate predicate before the compare-and-set (see
+above). This covers a caller that invokes `reserve` directly; the wired flow's
+facilitator verifies the window too.
 
 ### Fail closed on store failure
 
-`reserve` returns a `Result`, so a store I/O failure is a value, not a throw. The
-guard turns any store error into a `store-unavailable` deny. An unavailable store
-denies; it never grants. This keeps a stray `try/catch` in a consumer from
-turning a store outage into an accidental grant.
+`reserve` returns a `Result`, so a store failure is a value. But a distributed
+adapter (Redis, a Durable Object) rejects its promise on an I/O failure rather
+than returning one, so the guard wraps the store call in `tryCatchAsync`: a
+thrown or rejected store becomes a `store-unavailable` deny too, not an uncaught
+rejection. An unavailable store denies; it never grants. This keeps the
+fail-closed guarantee from being delegated, unenforced, to every adapter author.
+
+### Bounding memory
+
+The store evicts expired reservations, but `expiresAt` is the attacker-signed
+`validBefore`, so the sweep alone does not bound memory: a flood of far-future
+authorizations is retained. A hard `maxEntries` cap makes a fresh reservation
+past the ceiling fail closed, rather than growing without bound or evicting a
+live entry (which would reopen the race). Peak retention is roughly
+`min(maxEntries, request_rate * validBefore_horizon)`; there is no claim of an
+unconditional bound.
 
 ## What is deliberately not adopted
 

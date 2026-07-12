@@ -19,11 +19,22 @@
  * be replayed on-chain).
  *
  * The expiry does double duty: `reserve` also refuses an authorization that is
- * already expired (`expiresAt <= now`), so the validity window is enforced in the
- * same atomic step as the reservation. Checking the window in a separate earlier
- * step would reopen a time-of-check/time-of-use gap for a distributed store; the
- * wired flow's facilitator verifies the window too, but a caller invoking
- * `reserve` directly is covered here rather than relying on that.
+ * already expired (`expiresAt <= now`) and returns `expired`. In the in-memory
+ * store this shares the reservation's atomic tick. On a distributed store the
+ * double-spend race is closed by the compare-and-set alone (Redis `SET NX`, a
+ * unique constraint); the expired refusal can be a separate predicate before the
+ * CAS, or folded in with a Lua script or a constraint. That expiry check is only
+ * racing `now` crossing a fixed `validBefore`, and the on-chain `validBefore`
+ * check is the real backstop, so a separate predicate is acceptable. The wired
+ * flow's facilitator verifies the window too; a caller invoking `reserve`
+ * directly is covered here.
+ *
+ * Boundaries a second implementer must match: an entry is still reserved while
+ * `expiresAt > now` and free at `expiresAt <= now` (the edge the sweep and the
+ * on-chain `block.timestamp < validBefore` share). On `already-reserved` the
+ * `boundResource` MUST be read in the same atomic step as the compare-and-set
+ * (Redis 7 `SET ... NX GET`, a Lua script, or `INSERT ... ON CONFLICT ...
+ * RETURNING`); a separate `GET` can return a stale resource.
  *
  * Replay protection keys on the nonce, never on signature bytes. That is what
  * makes it immune to signature malleability: a malleated ECDSA signature
@@ -32,8 +43,8 @@
  * identically. A store keyed on the signature would see two distinct byte strings
  * and let the twin through.
  */
-import type { GuardError } from "./error.js";
-import { ok, type Result } from "./result.js";
+import { type GuardError, guardError } from "./error.js";
+import { err, ok, type Result } from "./result.js";
 
 /** The outcome of a successful reserve. */
 export type ReserveOutcome =
@@ -48,7 +59,12 @@ export interface ReserveParams {
    * safe. A caller using a non-random nonce source must compose that scope in.
    */
   readonly nonce: string;
-  /** The resource this payment is being spent on. */
+  /**
+   * The resource this payment is being spent on, as a canonical key. The
+   * substitution mitigation (a later chapter) compares this to the resource a
+   * nonce was first bound to, so equal resources must produce an equal string:
+   * normalize trailing slashes, query order, and case before passing it in.
+   */
   readonly resource: string;
   /**
    * Unix seconds, the authorization's `validBefore`. Used two ways: `reserve`
@@ -72,14 +88,31 @@ interface Entry {
 /** How often (in the store's clock, unix seconds) to sweep expired reservations. */
 const SWEEP_INTERVAL_SECONDS = 60;
 
+/**
+ * Hard ceiling on retained reservations. A fresh reserve past this fails closed
+ * rather than growing memory without bound, since `expiresAt` is attacker-signed
+ * and the sweep cannot reclaim a far-future entry. Sized for a single process;
+ * override for the deployment.
+ */
+const DEFAULT_MAX_ENTRIES = 1_000_000;
+
 const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 
 /**
  * In-memory nonce store for a single process. Atomic because the check and the set
- * share one synchronous tick. Bounds memory by evicting reservations whose
- * authorization has expired, so a flood of unique attacker-chosen nonces cannot
- * grow it without limit. Not suitable across serverless isolates; use a shared
- * store with a native atomic compare-and-set there.
+ * share one synchronous tick.
+ *
+ * Memory is bounded two ways. Expired reservations are swept (past `validBefore` a
+ * nonce is unreplayable on-chain, so dropping it is lossless). The sweep alone is
+ * NOT a bound: `expiresAt` is the attacker-signed `validBefore`, so a flood of
+ * far-future authorizations is retained until, second, a hard `maxEntries` cap
+ * rejects fresh reservations (fail closed). Peak retention is roughly
+ * `min(maxEntries, request_rate * validBefore_horizon)`. Not suitable across
+ * serverless isolates; use a shared store with a native atomic compare-and-set.
+ *
+ * Assumes a monotonic clock. A backward step (NTP) could un-expire a swept nonce;
+ * end to end the on-chain `validBefore` check is the backstop, but the store's
+ * standalone replay guarantee assumes time does not move backward.
  *
  * Exported for observability in tests; production code should use
  * `createMemoryNonceStore`.
@@ -88,7 +121,10 @@ export class MemoryNonceStore implements NonceStore {
   private readonly reserved = new Map<string, Entry>();
   private lastSweep = Number.NEGATIVE_INFINITY;
 
-  constructor(private readonly now: () => number = nowSeconds) {}
+  constructor(
+    private readonly now: () => number = nowSeconds,
+    private readonly maxEntries: number = DEFAULT_MAX_ENTRIES,
+  ) {}
 
   /** Number of reservations currently retained. */
   get size(): number {
@@ -113,6 +149,12 @@ export class MemoryNonceStore implements NonceStore {
     if (existing !== undefined && existing.expiresAt > now) {
       return Promise.resolve(ok({ status: "already-reserved", boundResource: existing.resource }));
     }
+    // Reject a fresh reservation once full, rather than growing without bound or
+    // evicting a live entry (which would reopen the race). Overwriting an already
+    // dead entry does not grow the map, so it is exempt from the cap.
+    if (existing === undefined && this.reserved.size >= this.maxEntries) {
+      return Promise.resolve(err(guardError("store-at-capacity", "nonce store at capacity")));
+    }
     this.reserved.set(nonce, { resource, expiresAt });
     return Promise.resolve(ok({ status: "reserved" }));
   }
@@ -131,7 +173,10 @@ export class MemoryNonceStore implements NonceStore {
   }
 }
 
-/** Create an in-memory nonce store. Optionally inject a clock (`() => unixSeconds`). */
-export function createMemoryNonceStore(now?: () => number): NonceStore {
-  return new MemoryNonceStore(now);
+/**
+ * Create an in-memory nonce store. Optionally inject a clock (`() => unixSeconds`)
+ * and a hard `maxEntries` cap (fresh reserves past it fail closed).
+ */
+export function createMemoryNonceStore(now?: () => number, maxEntries?: number): NonceStore {
+  return new MemoryNonceStore(now, maxEntries);
 }

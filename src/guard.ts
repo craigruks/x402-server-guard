@@ -13,13 +13,10 @@
  */
 import { type GuardError, guardError } from "./error.js";
 import { createMemoryNonceStore, type NonceStore, type ReserveParams } from "./nonce-store.js";
+import { tryCatchAsync } from "./result.js";
 
 /** The deny reasons a reservation can carry. */
-export type GuardErrorCode =
-  | "nonce-already-reserved"
-  | "nonce-resource-mismatch"
-  | "nonce-expired"
-  | "store-unavailable";
+export type GuardErrorCode = "nonce-already-reserved" | "nonce-expired" | "store-unavailable";
 
 export interface GuardOptions {
   /** Where reserved nonces are tracked. Defaults to an in-memory store. */
@@ -45,9 +42,23 @@ export function createGuard(options: GuardOptions = {}): Guard {
   const store = options.store ?? createMemoryNonceStore();
   return {
     async reserve(params: ReserveParams): Promise<Reservation> {
-      const result = await store.reserve(params);
+      // Wrap the store call so a store that THROWS or REJECTS fails closed too,
+      // not only one that returns `err`. A distributed adapter (Redis SET NX, a
+      // Durable Object fetch) rejects on an I/O failure, which is the store
+      // outage the fail-closed guarantee exists for. `tryCatchAsync` turns that
+      // rejection into a value; a raw `await store.reserve(...)` would let it
+      // escape as an uncaught rejection and make fail-closed framework-dependent.
+      const outcome = await tryCatchAsync(() => store.reserve(params));
+      if (!outcome.ok) {
+        // The store threw or rejected.
+        return {
+          reserved: false,
+          reason: guardError("store-unavailable", "nonce store unavailable", outcome.error),
+        };
+      }
+      const result = outcome.value;
       if (!result.ok) {
-        // Fail closed: a store failure must never become an accidental grant.
+        // The store returned a failure value. Fail closed: never an accidental grant.
         return {
           reserved: false,
           reason: guardError("store-unavailable", "nonce store unavailable", result.error),

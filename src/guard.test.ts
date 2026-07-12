@@ -54,4 +54,20 @@ describe("createGuard reserve", () => {
       expect(decision.reason.cause).toBe(original);
     }
   });
+
+  it("fails closed when the store throws or rejects", async () => {
+    // A distributed adapter (Redis, a Durable Object) rejects on an I/O failure
+    // rather than returning `err`. The guard must still deny, not let it escape.
+    const boom = new Error("redis connection refused");
+    const throwing: NonceStore = {
+      reserve: () => Promise.reject(boom),
+    };
+    const guard = createGuard({ store: throwing });
+    const decision = await guard.reserve(params("0xabc"));
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("store-unavailable");
+      expect(decision.reason.cause).toBe(boom);
+    }
+  });
 });
