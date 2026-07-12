@@ -1,13 +1,19 @@
 name: CI
 
 on:
+  # Run on every branch push so stacked PRs (which target a feature branch, not
+  # main) are still gated. A push-event run uses the pushed branch's own workflow.
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
+
+# One run per branch; a new push cancels the superseded run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
