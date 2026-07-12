@@ -14,10 +14,14 @@ the use of this software. See the [LICENSE](./LICENSE) (MIT) for the full terms.
 ## Scope
 
 This library targets server-side ("resource server" / merchant) hardening for the
-x402 protocol. The attack classes it aims to mitigate, drawn from published
-research (arXiv:2605.11781, arXiv:2605.30998), are documented per release in the
-README. Anything not listed there is out of scope and should not be assumed
-covered.
+x402 protocol. It mitigates five listed line items across four distinct attack
+classes, drawn from published research (arXiv:2605.11781, arXiv:2605.30998):
+the duplicate-settlement race, payment replay, cross-resource substitution,
+grant-before-finality, and cache leakage of paid content. Each is mapped to its
+mechanism and the test that proves it in
+[docs/coverage-map.md](./docs/coverage-map.md), with the rationale in
+[docs/hardening.md](./docs/hardening.md). Anything not listed is out of scope and
+should not be assumed covered.
 
 ## Supported versions
 

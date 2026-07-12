@@ -24,6 +24,15 @@ attack classes only. It cannot make an insecure payment endpoint safe on its own
 **The authors accept no liability for any loss of funds or damages.** See
 [SECURITY.md](./SECURITY.md) and the [LICENSE](./LICENSE).
 
+## Install
+
+```sh
+npm install @craigruks/x402-server-guard
+```
+
+Node ≥ 22. Zero runtime dependencies. Ships ESM with type declarations; a
+TypeScript or JavaScript consumer both import the same build.
+
 ## Usage
 
 Reserve a payment's nonce through the guard before you grant the resource. The
@@ -74,7 +83,11 @@ import { protect } from "@craigruks/x402-server-guard";
 const decision = await protect(
   guard,
   { nonce, resource: request.url, expiresAt: Number(authorization.validBefore) },
-  { settle: () => facilitator.settle(payload, requirements), deliver: () => resource },
+  {
+    // settle resolves true only when the payment actually settled.
+    settle: async () => (await facilitator.settle(payload, requirements)).success,
+    deliver: () => resource,
+  },
 );
 if (!decision.granted) return deny(decision.reason.code);
 response.headers.set("Cache-Control", decision.cacheControl);
@@ -100,13 +113,16 @@ All four enumerated attack classes are covered; see the table below.
 - **Small enough to read.** Source files are capped so the whole library can be
   audited in an afternoon. Built with plain `tsc` so the published output maps
   one-to-one to the source you can see.
-- **Plugs into the official `@x402/core` lifecycle hooks** rather than patching
-  internals. The same guard covers Express, Hono, Next, and Fastify.
+- **Framework-agnostic core.** `protect` takes plain callbacks, so the same guard
+  drops into Hono, Express, Next, or Fastify. A Hono binding is shown in the
+  examples; an `@x402/core`-hook convenience wrapper is a thin layer over `protect`.
 
-## Planned mitigations
+## Mitigations
 
-Each will land with a paired test proving the attack against a vanilla server and
-proving it blocked by the guard.
+Each ships with a paired test proving the attack against a vanilla server and
+proving it blocked by the guard. Every class is mapped to its research, mechanism,
+and proving test in [`docs/coverage-map.md`](./docs/coverage-map.md); the rationale
+is in [`docs/hardening.md`](./docs/hardening.md).
 
 | Attack class | Status |
 | --- | --- |
