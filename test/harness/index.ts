@@ -12,7 +12,7 @@ export {
   type FetchOutcome,
   type PaymentAttempt,
 } from "./caching-proxy.js";
-export { FakeChain } from "./fake-chain.js";
+export { FakeChain, FINALITY_CONFIRMATIONS } from "./fake-chain.js";
 export { FakeFacilitator } from "./fake-facilitator.js";
 export type { PaymentOptions } from "./payment.js";
 export { makePayment, newNonce, readExactEvmPayload } from "./payment.js";
