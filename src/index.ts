@@ -16,9 +16,15 @@
 export const VERSION: string = "0.1.0";
 
 export { type GuardError, guardError } from "./error.js";
-export { createGuard, type Guard, type GuardOptions, type Reservation } from "./guard.js";
 export {
-  MemoryNonceStore,
+  createGuard,
+  type Guard,
+  type GuardErrorCode,
+  type GuardOptions,
+  type Reservation,
+} from "./guard.js";
+export {
+  createMemoryNonceStore,
   type NonceStore,
   type ReserveOutcome,
   type ReserveParams,

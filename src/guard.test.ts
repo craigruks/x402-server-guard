@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { guardError } from "./error.js";
 import { createGuard } from "./guard.js";
+import type { NonceStore } from "./nonce-store.js";
+import { err } from "./result.js";
+
+const params = (nonce: string) => ({ nonce, resource: "/r", expiresAt: 2_000_000_000 });
 
 describe("createGuard reserve", () => {
   it("reserves a fresh payment nonce", async () => {
     const guard = createGuard();
-    const decision = await guard.reserve({ nonce: "0xabc", resource: "/r" });
+    const decision = await guard.reserve(params("0xabc"));
     expect(decision.reserved).toBe(true);
   });
 
   it("denies a replay with a typed reason", async () => {
     const guard = createGuard();
-    await guard.reserve({ nonce: "0xabc", resource: "/r" });
-    const decision = await guard.reserve({ nonce: "0xabc", resource: "/r" });
+    await guard.reserve(params("0xabc"));
+    const decision = await guard.reserve(params("0xabc"));
     expect(decision.reserved).toBe(false);
     if (!decision.reserved) {
       expect(decision.reason.code).toBe("nonce-already-reserved");
@@ -21,8 +26,22 @@ describe("createGuard reserve", () => {
   it("grants exactly one of N concurrent reservations of one nonce", async () => {
     const guard = createGuard();
     const decisions = await Promise.all(
-      Array.from({ length: 8 }, () => guard.reserve({ nonce: "0xrace", resource: "/r" })),
+      Array.from({ length: 8 }, () => guard.reserve(params("0xrace"))),
     );
     expect(decisions.filter((d) => d.reserved).length).toBe(1);
+  });
+
+  it("fails closed when the store errors", async () => {
+    const original = guardError("store-down", "boom");
+    const failing: NonceStore = {
+      reserve: () => Promise.resolve(err(original)),
+    };
+    const guard = createGuard({ store: failing });
+    const decision = await guard.reserve(params("0xabc"));
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("store-unavailable");
+      expect(decision.reason.cause).toBe(original);
+    }
   });
 });

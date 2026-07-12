@@ -2,11 +2,11 @@
  * The baseline resource server with the guard in front: the corrected pattern the
  * attacks are fired at to show them blocked.
  *
- * Same flow as the baseline, with one addition: after the facilitator verifies,
- * it reserves the payment's nonce through the guard before delivering. The first
- * request for a nonce reserves and is granted; a replay or a concurrent race is
- * denied. The guard's decision is a value, so a denial is a plain not-granted, not
- * a throw.
+ * The secure flow: verify, reserve the payment's nonce through the guard, settle,
+ * and only then deliver. The reservation stops the race and replay (the first
+ * request for a nonce wins, the rest are denied); settling before delivering means
+ * a payment that fails to settle never yields the resource. The guard's decision
+ * is a value, so a denial is a plain not-granted, not a throw.
  */
 import type { FacilitatorClient } from "@x402/core/server";
 import type { PaymentPayload, PaymentRequirements } from "@x402/core/types";
@@ -22,7 +22,7 @@ export class GuardedResourceServer<TResource> {
     readonly resourceUrl: string = "",
   ) {}
 
-  /** Handle one paid request, reserving the nonce before granting. */
+  /** Handle one paid request: reserve the nonce, settle, then grant. */
   async handle(
     payload: PaymentPayload,
     requirements: PaymentRequirements,
@@ -36,22 +36,28 @@ export class GuardedResourceServer<TResource> {
     if (!parsed.ok) {
       return { granted: false };
     }
+    const { nonce, validBefore } = parsed.value.authorization;
     const reservation = await this.guard.reserve({
-      nonce: parsed.value.authorization.nonce,
+      nonce,
       resource: this.resourceUrl,
+      expiresAt: Number(validBefore),
     });
     if (!reservation.reserved) {
       return { granted: false };
     }
 
-    const resource = this.deliver(requirements);
+    // Settle before granting: a payment that does not settle yields no resource.
     const settlement = await this.facilitator.settle(payload, requirements);
+    if (!settlement.success) {
+      return {
+        granted: false,
+        settlement: { ok: false, reason: settlement.errorReason ?? "settle failed" },
+      };
+    }
     return {
       granted: true,
-      resource,
-      settlement: settlement.success
-        ? { ok: true, txHash: settlement.transaction }
-        : { ok: false, reason: "nonce-already-used" },
+      resource: this.deliver(requirements),
+      settlement: { ok: true, txHash: settlement.transaction },
     };
   }
 }
