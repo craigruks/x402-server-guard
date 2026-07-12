@@ -23,6 +23,35 @@ describe("createGuard reserve", () => {
     }
   });
 
+  it("denies a nonce re-presented for a different resource as a substitution", async () => {
+    const guard = createGuard();
+    await guard.reserve({ nonce: "0xabc", resource: "/report-A", expiresAt: 2_000_000_000 });
+    // Same nonce, different resource: cross-resource substitution, not a replay.
+    const decision = await guard.reserve({
+      nonce: "0xabc",
+      resource: "/report-B",
+      expiresAt: 2_000_000_000,
+    });
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("nonce-resource-mismatch");
+    }
+  });
+
+  it("denies a same-resource re-presentation as a replay, not a substitution", async () => {
+    const guard = createGuard();
+    await guard.reserve({ nonce: "0xabc", resource: "/report-A", expiresAt: 2_000_000_000 });
+    const decision = await guard.reserve({
+      nonce: "0xabc",
+      resource: "/report-A",
+      expiresAt: 2_000_000_000,
+    });
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("nonce-already-reserved");
+    }
+  });
+
   it("grants exactly one of N concurrent reservations of one nonce", async () => {
     const guard = createGuard();
     const decisions = await Promise.all(

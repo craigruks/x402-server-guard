@@ -127,6 +127,37 @@ live entry (which would reopen the race). Peak retention is roughly
 `min(maxEntries, request_rate * validBefore_horizon)`; there is no claim of an
 unconditional bound.
 
+## Cross-resource substitution
+
+Source: [arXiv:2605.11781](https://arxiv.org/abs/2605.11781) (§ substitution).
+
+An EIP-3009 authorization signs `{from, to, value, validAfter, validBefore,
+nonce}` and, via the EIP-712 domain, the token and chain. It does **not** sign
+the resource, and `PaymentPayload.resource` is unsigned client metadata. So two
+resources behind one `payTo` at the same price are indistinguishable at the
+payment layer: a payment can be redeemed at a resource the payer did not intend.
+The reference server matches only `{scheme, network, asset, amount, payTo}`
+(surveyed above), so it has no binding to fall back on.
+
+The guard binds the nonce to the resource it is **first reserved for**, and
+denies the same nonce at a different resource with a distinct
+`nonce-resource-mismatch` (not the generic `nonce-already-reserved`). Because the
+binding happens at reserve, before settle, it catches the substitution in the
+window the on-chain nonce is not yet consumed, where the facilitator's post-settle
+nonce check cannot help. The resource is compared as a canonical key, so callers
+must normalize it (trailing slash, query order, case) before passing it in.
+
+Honest limits, stated so the mitigation is not oversold:
+- First-seen binding cannot know a payment's *intended* resource (nothing signed
+  says so). A payment's very first use at the "wrong" resource still binds and
+  grants there. It stops the same nonce being spent across *two* resources, and
+  flags the attempt; it does not divine intent.
+- It does not stop a payer front-running their own nonce onto a costlier route.
+  Real intent-binding needs the resource inside what the facilitator verifies,
+  which the exact scheme's fixed six-field signature cannot carry.
+- A different price or `payTo` is already caught by the facilitator's parameter
+  matching; the guard covers the equal-price, same-`payTo` case it cannot.
+
 ## What is deliberately not adopted
 
 - permit2's nonce bitmap packs many nonces into one storage word because its
