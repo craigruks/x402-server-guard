@@ -26,6 +26,7 @@ export {
 export {
   createMemoryNonceStore,
   type NonceStore,
+  type ReleaseOutcome,
   type ReserveOutcome,
   type ReserveParams,
 } from "./nonce-store.js";

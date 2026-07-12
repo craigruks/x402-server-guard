@@ -11,46 +11,45 @@
  * sufficient: they have no compare-and-set, so an `await` sits in the check-to-set
  * gap and reopens the settlement race. Those adapters are a later chapter.
  *
- * `reserve` returns a `Result` so a store I/O failure is a value, not a throw: the
- * guard turns any store error into a fail-closed deny rather than letting it
- * escape into the request path. A reserved nonce is bound to the resource it was
- * first reserved for (so a later mitigation can reject a rebind) and carries the
- * authorization's expiry (so the store can evict it once the payment can no longer
- * be replayed on-chain).
+ * `reserve` and `release` return a `Result`, so a store I/O failure is a value,
+ * not a throw: the guard turns any store error into a fail-closed deny. A reserved
+ * nonce is bound to the resource it was first reserved for (to reject a rebind),
+ * carries the authorization's expiry (to evict once it can no longer be replayed
+ * on-chain), and gets a fencing `token` only its holder can `release` with.
  *
- * The expiry does double duty: `reserve` also refuses an authorization that is
- * already expired (`expiresAt <= now`) and returns `expired`. In the in-memory
- * store this shares the reservation's atomic tick. On a distributed store the
- * double-spend race is closed by the compare-and-set alone (Redis `SET NX`, a
- * unique constraint); the expired refusal can be a separate predicate before the
- * CAS, or folded in with a Lua script or a constraint. That expiry check is only
- * racing `now` crossing a fixed `validBefore`, and the on-chain `validBefore`
- * check is the real backstop, so a separate predicate is acceptable. The wired
- * flow's facilitator verifies the window too; a caller invoking `reserve`
- * directly is covered here.
+ * `reserve` also refuses an already-expired authorization (`expiresAt <= now`,
+ * returning `expired`), enforcing the closing edge of the window. On a distributed
+ * store the compare-and-set closes the double-spend race on its own; the expiry
+ * refusal can be a separate predicate before it (only `now` crossing a fixed
+ * `validBefore` races, and the on-chain check is the backstop). The facilitator
+ * verifies the window too; a direct `reserve` caller is covered here.
  *
- * Boundaries a second implementer must match: an entry is still reserved while
- * `expiresAt > now` and free at `expiresAt <= now` (the edge the sweep and the
- * on-chain `block.timestamp < validBefore` share). On `already-reserved` the
- * `boundResource` MUST be read in the same atomic step as the compare-and-set
- * (Redis 7 `SET ... NX GET`, a Lua script, or `INSERT ... ON CONFLICT ...
- * RETURNING`); a separate `GET` can return a stale resource.
+ * Boundaries a second implementer must match: an entry is reserved while
+ * `expiresAt > now`, free at `expiresAt <= now`. On `already-reserved` the
+ * `boundResource` MUST be read atomically with the compare-and-set (Redis 7
+ * `SET .. NX GET`, a Lua script, or `INSERT .. ON CONFLICT .. RETURNING`); a
+ * separate `GET` can return a stale resource.
  *
- * Replay protection keys on the nonce, never on signature bytes. That is what
- * makes it immune to signature malleability: a malleated ECDSA signature
- * (`(r, s, v)` and `(r, N-s, v^1)` recover the same signer) carries the same
- * signed nonce, so it collides with the existing reservation and is denied
- * identically. A store keyed on the signature would see two distinct byte strings
- * and let the twin through.
+ * Replay keys on the nonce, never the signature, which is what makes it immune to
+ * signature malleability (a malleated twin carries the same signed nonce and
+ * collides). See `docs/hardening.md` for the full rationale.
  */
+import { randomUUID } from "node:crypto";
 import { type GuardError, guardError } from "./error.js";
 import { err, ok, type Result } from "./result.js";
 
-/** The outcome of a successful reserve. */
+/**
+ * The outcome of a reserve. `reserved` carries a fencing `token`: only the holder
+ * of that token can later `release` the reservation, so releasing an in-flight
+ * hold is not a griefing primitive an attacker can trigger for another payer.
+ */
 export type ReserveOutcome =
-  | { readonly status: "reserved" }
+  | { readonly status: "reserved"; readonly token: string }
   | { readonly status: "already-reserved"; readonly boundResource: string }
   | { readonly status: "expired" };
+
+/** The outcome of a release. `not-held` means no matching token: nothing was freed. */
+export type ReleaseOutcome = { readonly status: "released" } | { readonly status: "not-held" };
 
 export interface ReserveParams {
   /**
@@ -78,21 +77,28 @@ export interface ReserveParams {
 /** A store of reserved payment nonces. `reserve` must be atomic. */
 export interface NonceStore {
   reserve(params: ReserveParams): Promise<Result<ReserveOutcome, GuardError>>;
+  /**
+   * Release a reservation so the nonce can be reserved again. Used to free a hold
+   * when a settlement fails or is reorged before finality, so a legitimate payer
+   * can retry the same authorization. Releases only if `token` matches the token
+   * `reserve` returned (fencing); otherwise it frees nothing (`not-held`).
+   */
+  release(nonce: string, token: string): Promise<Result<ReleaseOutcome, GuardError>>;
 }
 
 interface Entry {
   resource: string;
   expiresAt: number;
+  token: string;
 }
 
 /** How often (in the store's clock, unix seconds) to sweep expired reservations. */
 const SWEEP_INTERVAL_SECONDS = 60;
 
 /**
- * Hard ceiling on retained reservations. A fresh reserve past this fails closed
- * rather than growing memory without bound, since `expiresAt` is attacker-signed
- * and the sweep cannot reclaim a far-future entry. Sized for a single process;
- * override for the deployment.
+ * Hard ceiling on retained reservations: a fresh reserve past this fails closed
+ * rather than growing without bound (`expiresAt` is attacker-signed, so the sweep
+ * cannot reclaim a far-future entry). Override for the deployment.
  */
 const DEFAULT_MAX_ENTRIES = 1_000_000;
 
@@ -102,17 +108,14 @@ const nowSeconds = (): number => Math.floor(Date.now() / 1000);
  * In-memory nonce store for a single process. Atomic because the check and the set
  * share one synchronous tick.
  *
- * Memory is bounded two ways. Expired reservations are swept (past `validBefore` a
- * nonce is unreplayable on-chain, so dropping it is lossless). The sweep alone is
- * NOT a bound: `expiresAt` is the attacker-signed `validBefore`, so a flood of
- * far-future authorizations is retained until, second, a hard `maxEntries` cap
- * rejects fresh reservations (fail closed). Peak retention is roughly
- * `min(maxEntries, request_rate * validBefore_horizon)`. Not suitable across
- * serverless isolates; use a shared store with a native atomic compare-and-set.
- *
- * Assumes a monotonic clock. A backward step (NTP) could un-expire a swept nonce;
- * end to end the on-chain `validBefore` check is the backstop, but the store's
- * standalone replay guarantee assumes time does not move backward.
+ * Memory is bounded two ways. Expired reservations are swept (lossless: past
+ * `validBefore` the nonce is unreplayable on-chain). The sweep alone is NOT a
+ * bound, since `expiresAt` is the attacker-signed `validBefore`, so a hard
+ * `maxEntries` cap rejects fresh reservations (fail closed) once reached. Peak
+ * retention is roughly `min(maxEntries, request_rate * validBefore_horizon)`. Not
+ * for serverless isolates; use a shared store with a native compare-and-set there.
+ * Assumes a monotonic clock (a backward NTP step could un-expire a swept nonce;
+ * the on-chain `validBefore` check is the end-to-end backstop).
  *
  * Exported for observability in tests; production code should use
  * `createMemoryNonceStore`.
@@ -155,8 +158,20 @@ export class MemoryNonceStore implements NonceStore {
     if (existing === undefined && this.reserved.size >= this.maxEntries) {
       return Promise.resolve(err(guardError("store-at-capacity", "nonce store at capacity")));
     }
-    this.reserved.set(nonce, { resource, expiresAt });
-    return Promise.resolve(ok({ status: "reserved" }));
+    const token = randomUUID();
+    this.reserved.set(nonce, { resource, expiresAt, token });
+    return Promise.resolve(ok({ status: "reserved", token }));
+  }
+
+  release(nonce: string, token: string): Promise<Result<ReleaseOutcome, GuardError>> {
+    const entry = this.reserved.get(nonce);
+    // Fencing: free the nonce only for the holder of the matching token. A missing
+    // entry (expired, swept, already released) or a wrong token frees nothing.
+    if (entry === undefined || entry.token !== token) {
+      return Promise.resolve(ok({ status: "not-held" }));
+    }
+    this.reserved.delete(nonce);
+    return Promise.resolve(ok({ status: "released" }));
   }
 
   /** Periodically drop expired reservations so unique-nonce floods stay bounded. */

@@ -158,6 +158,35 @@ Honest limits, stated so the mitigation is not oversold:
 - A different price or `payTo` is already caught by the facilitator's parameter
   matching; the guard covers the equal-price, same-`payTo` case it cannot.
 
+## Grant-before-finality
+
+Source: [arXiv:2605.30998](https://arxiv.org/abs/2605.30998) (§ finality).
+
+A facilitator's `settle` reporting success means the payment landed in a block, not
+that it is final. Until it is buried under enough confirmations a chain reorg can
+drop it and revert the payment, so a server that grants at zero confirmations can
+deliver a resource against a payment that never sticks.
+
+The guard does not watch the chain; the merchant's server (or the adapter) holds
+the grant until the settlement reaches k confirmations, where k is a per-chain
+setting (an L2 sequencer's finality differs from PoW/PoS k-confirmations). What the
+guard adds is the primitive that makes the hold safe to abandon: `reserve` returns
+a handle with `release`, so if the settlement fails or is reorged before finality
+the server frees the nonce and the payer can retry the same authorization instead
+of being locked out until the window closes.
+
+`release` is fenced by a token held inside the handle: only the reserver can free
+its own hold, so it is not a griefing primitive an attacker can aim at another
+payer's in-flight reservation. Not calling `release` is safe: the reservation
+simply expires with the authorization. Freeing a hold whose settlement did not
+stick does not reopen the race, because the payment was never granted; releasing a
+successful reservation is what would, and the flow never does that.
+
+On a single-sequencer L2 like Base (x402's usual home) reorgs are rare and hard to
+force; elsewhere the risk is higher. The mitigation is the discipline of holding
+until finality plus the release-on-failure retry path, not a claim that reorgs are
+impossible.
+
 ## What is deliberately not adopted
 
 - permit2's nonce bitmap packs many nonces into one storage word because its
