@@ -62,7 +62,8 @@
     "version": "changeset version",
     "release": "changeset publish",
     "test:coverage": "vitest run --coverage",
-    "smoke:dist": "npm run build && node scripts/smoke-dist.mjs"
+    "smoke:dist": "npm run build && node scripts/smoke-dist.mjs",
+    "example": "tsx examples/secure-flow.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",

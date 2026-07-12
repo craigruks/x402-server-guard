@@ -32,3 +32,4 @@ jobs:
       - run: npm run build
       - run: npm run check:pkg
       - run: node scripts/smoke-dist.mjs # exercise the compiled dist/ a consumer imports
+      - run: npm run example # the documented usage example throws if it ever grants more than once
