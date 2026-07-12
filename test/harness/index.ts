@@ -14,6 +14,7 @@ export {
 } from "./caching-proxy.js";
 export { FakeChain, FINALITY_CONFIRMATIONS } from "./fake-chain.js";
 export { FakeFacilitator } from "./fake-facilitator.js";
+export { GuardedResourceServer } from "./guarded-server.js";
 export type { PaymentOptions } from "./payment.js";
 export { makePayment, newNonce, readExactEvmPayload } from "./payment.js";
 export { SharedCache } from "./shared-cache.js";

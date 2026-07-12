@@ -7,17 +7,24 @@
  * and is granted. Only the first `settle()` consumes the nonce; the rest fail
  * `nonce-already-used`. Net result: N resources delivered for one settled payment.
  *
- * These tests prove the exploit lands against the unguarded baseline. No guard
- * exists yet, so the assertions document the vulnerability rather than a fix. The
- * mitigation (later) has to hold delivery to one grant per nonce, at which point
- * a guarded variant of the first test flips to a single grant.
+ * The first suite proves the exploit lands against the unguarded baseline. The
+ * second puts the guard in front and shows it blocked: the nonce reservation holds
+ * delivery to one grant per nonce, so the same concurrent flood yields a single
+ * grant.
  *
  * This also covers payment replay. Resubmitting a settled payment is denied once
  * its nonce is consumed (the sequential control below), so the only replay that
  * lands is the concurrent form reproduced here. Replay needs no separate case.
  */
 import { describe, expect, it } from "vitest";
-import { createTestbed, makePayment } from "../harness/index.js";
+import { createGuard } from "../../src/index.js";
+import {
+  createTestbed,
+  FakeChain,
+  FakeFacilitator,
+  GuardedResourceServer,
+  makePayment,
+} from "../harness/index.js";
 
 describe("attack: duplicate-settlement race", () => {
   it("delivers the resource to every concurrent request for one settled payment", async () => {
@@ -57,6 +64,45 @@ describe("attack: duplicate-settlement race", () => {
 
     expect(first.granted).toBe(true);
     expect(second.granted).toBe(false);
+    expect(chain.settledCount).toBe(1);
+  });
+});
+
+describe("guarded: duplicate-settlement race", () => {
+  it("grants exactly once for a concurrent flood of one payment", async () => {
+    const CONCURRENCY = 5;
+    const chain = new FakeChain(25);
+    const server = new GuardedResourceServer(
+      new FakeFacilitator(chain),
+      createGuard(),
+      () => "the-resource",
+    );
+    const { payload, requirements } = makePayment();
+
+    const results = await Promise.all(
+      Array.from({ length: CONCURRENCY }, () => server.handle(payload, requirements)),
+    );
+
+    const granted = results.filter((r) => r.granted).length;
+    // The guard reserves the nonce before delivering, so only the first request wins.
+    expect(granted).toBe(1);
+    expect(chain.settledCount).toBe(1);
+  });
+
+  it("denies a replay of an already-reserved payment", async () => {
+    const chain = new FakeChain();
+    const server = new GuardedResourceServer(
+      new FakeFacilitator(chain),
+      createGuard(),
+      () => "the-resource",
+    );
+    const { payload, requirements } = makePayment();
+
+    const first = await server.handle(payload, requirements);
+    const replay = await server.handle(payload, requirements);
+
+    expect(first.granted).toBe(true);
+    expect(replay.granted).toBe(false);
     expect(chain.settledCount).toBe(1);
   });
 });
