@@ -15,4 +15,5 @@
 /** Current package version (semver). */
 export const VERSION: string = "0.1.0";
 
+export { type GuardError, guardError } from "./error.js";
 export { err, ok, type Result, tryCatch, tryCatchAsync } from "./result.js";
