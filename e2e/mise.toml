@@ -1,0 +1,4 @@
+# Foundry is only needed for the Anvil fork harness under e2e/src/fork. Scoped
+# here so the root toolchain (node, just) stays lean.
+[tools]
+foundry = "1.7.1"
