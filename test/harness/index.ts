@@ -7,10 +7,16 @@
  * exploit landing; the guard (later) is shown to close it.
  */
 export { BaselineResourceServer } from "./baseline-server.js";
+export {
+  CachingProxy,
+  type FetchOutcome,
+  type PaymentAttempt,
+} from "./caching-proxy.js";
 export { FakeChain } from "./fake-chain.js";
 export { FakeFacilitator } from "./fake-facilitator.js";
 export type { PaymentOptions } from "./payment.js";
 export { makePayment, newNonce, readExactEvmPayload } from "./payment.js";
+export { SharedCache } from "./shared-cache.js";
 export { createTestbed, type Testbed, type TestbedOptions } from "./testbed.js";
 export type {
   ExactEvmAuthorization,
