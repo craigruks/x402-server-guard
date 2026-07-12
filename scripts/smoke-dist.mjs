@@ -17,6 +17,12 @@ const replay = await guard.reserve(params);
 assert.equal(replay.reserved, false, "replay should be denied");
 assert.equal(replay.reason.code, "nonce-already-reserved", "deny should carry the typed code");
 
+// An already-expired authorization is denied (clock fixed at 1000, window closed at 500).
+const expiredGuard = createGuard({ store: createMemoryNonceStore(() => 1000) });
+const expired = await expiredGuard.reserve({ nonce: "0xexp", resource: "/report", expiresAt: 500 });
+assert.equal(expired.reserved, false, "expired authorization should be denied");
+assert.equal(expired.reason.code, "nonce-expired", "expiry deny should carry the typed code");
+
 // The store factory and error constructor are usable from the built package too.
 assert.ok(typeof createMemoryNonceStore === "function", "createMemoryNonceStore exported");
 assert.equal(guardError("x", "y").code, "x", "guardError exported and usable");

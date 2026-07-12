@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { guardError } from "./error.js";
 import { createGuard } from "./guard.js";
-import type { NonceStore } from "./nonce-store.js";
+import { createMemoryNonceStore, type NonceStore } from "./nonce-store.js";
 import { err } from "./result.js";
 
 const params = (nonce: string) => ({ nonce, resource: "/r", expiresAt: 2_000_000_000 });
@@ -29,6 +29,16 @@ describe("createGuard reserve", () => {
       Array.from({ length: 8 }, () => guard.reserve(params("0xrace"))),
     );
     expect(decisions.filter((d) => d.reserved).length).toBe(1);
+  });
+
+  it("denies an already-expired authorization", async () => {
+    // Clock fixed at 1000; the authorization's window closed at 500.
+    const guard = createGuard({ store: createMemoryNonceStore(() => 1000) });
+    const decision = await guard.reserve({ nonce: "0xexp", resource: "/r", expiresAt: 500 });
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("nonce-expired");
+    }
   });
 
   it("fails closed when the store errors", async () => {

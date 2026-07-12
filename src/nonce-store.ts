@@ -17,6 +17,20 @@
  * first reserved for (so a later mitigation can reject a rebind) and carries the
  * authorization's expiry (so the store can evict it once the payment can no longer
  * be replayed on-chain).
+ *
+ * The expiry does double duty: `reserve` also refuses an authorization that is
+ * already expired (`expiresAt <= now`), so the validity window is enforced in the
+ * same atomic step as the reservation. Checking the window in a separate earlier
+ * step would reopen a time-of-check/time-of-use gap for a distributed store; the
+ * wired flow's facilitator verifies the window too, but a caller invoking
+ * `reserve` directly is covered here rather than relying on that.
+ *
+ * Replay protection keys on the nonce, never on signature bytes. That is what
+ * makes it immune to signature malleability: a malleated ECDSA signature
+ * (`(r, s, v)` and `(r, N-s, v^1)` recover the same signer) carries the same
+ * signed nonce, so it collides with the existing reservation and is denied
+ * identically. A store keyed on the signature would see two distinct byte strings
+ * and let the twin through.
  */
 import type { GuardError } from "./error.js";
 import { ok, type Result } from "./result.js";
@@ -24,7 +38,8 @@ import { ok, type Result } from "./result.js";
 /** The outcome of a successful reserve. */
 export type ReserveOutcome =
   | { readonly status: "reserved" }
-  | { readonly status: "already-reserved"; readonly boundResource: string };
+  | { readonly status: "already-reserved"; readonly boundResource: string }
+  | { readonly status: "expired" };
 
 export interface ReserveParams {
   /**
@@ -36,8 +51,10 @@ export interface ReserveParams {
   /** The resource this payment is being spent on. */
   readonly resource: string;
   /**
-   * Unix seconds, the authorization's `validBefore`. After this the reservation
-   * may be evicted: the nonce is unreplayable on-chain, so dropping it is lossless.
+   * Unix seconds, the authorization's `validBefore`. Used two ways: `reserve`
+   * refuses an authorization whose window has already closed (`expiresAt <= now`),
+   * and once past this time a live reservation may be evicted (the nonce is
+   * unreplayable on-chain, so dropping it is lossless).
    */
   readonly expiresAt: number;
 }
@@ -85,6 +102,12 @@ export class MemoryNonceStore implements NonceStore {
   }: ReserveParams): Promise<Result<ReserveOutcome, GuardError>> {
     const now = this.now();
     this.maybeSweep(now);
+
+    // An already-expired authorization is never grantable: refuse it in the same
+    // atomic step, before touching the reservation map.
+    if (expiresAt <= now) {
+      return Promise.resolve(ok({ status: "expired" }));
+    }
 
     const existing = this.reserved.get(nonce);
     if (existing !== undefined && existing.expiresAt > now) {

@@ -18,6 +18,7 @@ import { createMemoryNonceStore, type NonceStore, type ReserveParams } from "./n
 export type GuardErrorCode =
   | "nonce-already-reserved"
   | "nonce-resource-mismatch"
+  | "nonce-expired"
   | "store-unavailable";
 
 export interface GuardOptions {
@@ -59,6 +60,11 @@ export function createGuard(options: GuardOptions = {}): Guard {
           return {
             reserved: false,
             reason: guardError("nonce-already-reserved", "payment nonce is already reserved"),
+          };
+        case "expired":
+          return {
+            reserved: false,
+            reason: guardError("nonce-expired", "payment authorization has expired"),
           };
       }
     },

@@ -40,6 +40,16 @@ describe("MemoryNonceStore", () => {
     expect(reserved).toBe(1);
   });
 
+  it("refuses an authorization that is already expired", async () => {
+    const store = new MemoryNonceStore(() => 1000);
+    expect(await store.reserve(params("0xexp", "/r", 500))).toEqual({
+      ok: true,
+      value: { status: "expired" },
+    });
+    // An expired reserve must not occupy the slot: the nonce stays unreserved.
+    expect(store.size).toBe(0);
+  });
+
   it("re-reserves a nonce whose authorization has expired", async () => {
     let clock = 1000;
     const store = new MemoryNonceStore(() => clock);
