@@ -1,0 +1,25 @@
+{
+  "name": "x402-server-guard-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Opt-in live reproduction of x402 attacks on Base Sepolia. Not published.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "server": "tsx src/naive-server.ts",
+    "attack:substitution": "tsx src/attacks/substitution.ts",
+    "attack:race": "tsx src/attacks/race.ts"
+  },
+  "dependencies": {
+    "@x402/core": "2.18.0",
+    "@x402/evm": "2.18.0",
+    "@x402/fetch": "2.18.0",
+    "dotenv": "17.4.2",
+    "viem": "2.55.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "tsx": "4.23.0",
+    "typescript": "5.9.3"
+  }
+}
