@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { guardError } from "./error.js";
 import { createGuard } from "./guard.js";
-import { createMemoryNonceStore, type NonceStore } from "./nonce-store.js";
+import {
+  createMemoryNonceStore,
+  type NonceStore,
+  type ReserveError,
+  type ReserveOutcome,
+} from "./nonce-store.js";
 import { err, ok } from "./result.js";
 
 const params = (nonce: string) => ({ nonce, resource: "/r", expiresAt: 2_000_000_000 });
@@ -103,14 +108,15 @@ describe("createGuard reserve", () => {
   });
 
   it("collapses an unrecognized store error to store-unavailable (fail closed)", async () => {
-    // A store returning an off-contract code (violating the NonceStore error type)
-    // must still fail closed. The cast simulates such a misbehaving adapter; the
-    // guard collapses anything it does not recognize to store-unavailable.
-    const original = guardError("store-down", "boom");
-    const failing = {
+    // A store returning an off-contract code must still fail closed. `ReserveError`
+    // forbids the code at compile time, so cast only that value past the type (a
+    // misbehaving adapter could still emit it at runtime); the store shape stays
+    // honest. The guard must collapse anything it does not recognize.
+    const original = guardError("store-down", "boom") as unknown as ReserveError;
+    const failing: NonceStore = {
       reserve: () => Promise.resolve(err(original)),
       release: () => Promise.resolve(ok({ status: "released" as const })),
-    } as unknown as NonceStore;
+    };
     const guard = createGuard({ store: failing });
     const decision = await guard.reserve(params("0xabc"));
     expect(decision.reserved).toBe(false);
@@ -154,12 +160,13 @@ describe("createGuard reserve", () => {
 
   it("fails closed on an off-contract store status instead of returning undefined", async () => {
     // A misbehaving adapter returns a status outside the ReserveOutcome contract.
-    // The guard must deny (a value), not fall through to an undefined return that
-    // would throw out of the request path.
-    const misbehaving = {
-      reserve: () => Promise.resolve(ok({ status: "teleported" as const })),
+    // `ReserveOutcome` forbids it at compile time, so cast only that value past the
+    // type; the store shape stays honest. The guard must deny (a value), not fall
+    // through to an undefined return that would throw out of the request path.
+    const misbehaving: NonceStore = {
+      reserve: () => Promise.resolve(ok({ status: "teleported" } as unknown as ReserveOutcome)),
       release: () => Promise.resolve(ok({ status: "released" as const })),
-    } as unknown as NonceStore;
+    };
     const guard = createGuard({ store: misbehaving });
     const decision = await guard.reserve(params("0xweird"));
     expect(decision.reserved).toBe(false);

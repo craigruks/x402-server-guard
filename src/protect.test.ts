@@ -167,8 +167,10 @@ describe("protect", () => {
     const guard = createGuard();
     const deliver = vi.fn(() => "leak");
     // A JS caller (or a cast/any-typed one) that supplies settle and deliver but
-    // omits `finality`. The type union forbids this, but the runtime must not grant
-    // at zero confirmations: only an explicit "facilitator" grants on settle.
+    // omits `finality`. The off-contract thing here is a MISSING required field, not
+    // a wrong value, so there is nothing narrower to cast than the whole object. The
+    // runtime must not grant at zero confirmations: only an explicit "facilitator"
+    // grants on settle.
     const handlers = {
       settle: () => Promise.resolve(true),
       deliver,
