@@ -1,32 +1,20 @@
 /**
  * Result: errors as values.
  *
- * The library does not throw for expected failures. An operation that can fail
- * returns a `Result`, so the failure is a typed value the caller has to handle.
- * Nothing gets silently swallowed by a stray `try/catch` and turned into an
- * accidental grant.
+ * The library does not throw for expected failures. An operation that can fail returns
+ * a `Result`, so the failure is a typed value the caller has to handle, and nothing is
+ * silently swallowed by a stray `try/catch` and turned into an accidental grant.
  *
- * Two shapes, kept separate on purpose:
- *   - `Result<T, E>` for operational failure (parsing, store I/O). Use this.
- *   - domain decisions (allow / deny-with-reason) are their own discriminated
- *     unions, not `Result`. A deny is a normal decision, not an error.
+ * Operational failure (parsing, store I/O) is a `Result<T, E>`. Domain decisions
+ * (allow / deny-with-reason) are their own discriminated unions, not `Result`: a deny
+ * is a normal decision, not an error.
  *
  * `try/catch` is banned everywhere except the two converters below (see
- * `.biome/plugins/no-try-catch.grit`). Wrap throwing built-in or third-party
- * code once, here, and turn the throw into a `Result`.
+ * `.biome/plugins/no-try-catch.grit`). Wrap throwing code once, here.
  *
- * Prior art. Errors-as-values comes from Rust's `Result` and Haskell's
- * `Either`. In TypeScript the references are:
- *   - neverthrow (https://github.com/supermacro/neverthrow): the lightweight
- *     Result library this mirrors. `ok`/`err`/`Result`, and `tryCatch`/
- *     `tryCatchAsync` play the role of its `fromThrowable`/`fromPromise`.
- *   - Effect (https://effect.website): the larger effect system whose typed
- *     errors (tagged errors, `Either`) inform the approach.
- *
- * We bake our own minimal version instead of depending on either. A runtime
- * dependency would break the zero-dependency guarantee, which is part of the
- * security pitch. We take the four primitives we need, so the whole file reads
- * in one sitting, and skip the rest of those libraries' surface.
+ * Prior art: Rust's `Result`, Haskell's `Either`, and in TypeScript neverthrow and
+ * Effect. We bake our own four primitives rather than take a runtime dependency, which
+ * would break the zero-dependency guarantee that is part of the security pitch.
  */
 
 export type Result<T, E> =
@@ -43,6 +31,7 @@ export function err<E>(error: E): Result<never, E> {
   return { ok: false, error };
 }
 
+// biome-ignore lint/plugin: a caught value is typed unknown by the language
 function toError(caught: unknown): Error {
   return caught instanceof Error ? caught : new Error(String(caught));
 }

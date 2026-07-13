@@ -8,7 +8,7 @@
   "files": {
     "includes": ["src/**", "scripts/**", "test/**", "examples/**", "*.ts"]
   },
-  "plugins": [".biome/plugins/no-try-catch.grit"],
+  "plugins": [".biome/plugins/no-try-catch.grit", ".biome/plugins/no-unknown.grit"],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

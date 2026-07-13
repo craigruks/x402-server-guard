@@ -48,6 +48,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "version": "node scripts/sync-version.mjs && git add src/index.ts",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

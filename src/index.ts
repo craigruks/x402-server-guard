@@ -31,10 +31,13 @@ export {
 } from "./guard.js";
 export {
   createMemoryNonceStore,
+  type MemoryNonceStoreOptions,
   type NonceStore,
   type ReleaseOutcome,
+  type ReserveError,
   type ReserveOutcome,
   type ReserveParams,
+  type StoreError,
 } from "./nonce-store.js";
 export {
   type ProtectDecision,

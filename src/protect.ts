@@ -1,30 +1,17 @@
 /**
  * The secure flow as one call: reserve, settle, confirm, grant.
  *
- * `protect` is the framework-agnostic "wrap your endpoint" core. A merchant
- * verifies the payment with their facilitator first (signature, amount, window),
- * then calls `protect` with the payment's nonce, the resource being served, and
- * callbacks to settle and deliver. It runs the safe order:
+ * `protect` is the framework-agnostic "wrap your endpoint" core. Verify the payment
+ * with your facilitator first, then call `protect` with the payment's nonce, the
+ * resource being served, and callbacks to settle and deliver. It runs the safe order
  *
  *   reserve -> settle -> (confirm finality) -> deliver
  *
- * and closes all four attack classes at once: the atomic reservation stops the
- * duplicate-settlement race and payment replay; the resource on the reservation
- * stops cross-resource substitution; settling before delivering plus the optional
- * `confirm` gate stops grant-before-finality; and a granted response carries the
- * `Cache-Control` that keeps a shared cache from leaking it. A settlement that
- * fails, or a finality gate that is not met, releases the reservation so the payer
- * can retry the same authorization.
- *
- * On a grant, the caller MUST apply the returned `cacheControl` to the response
- * headers; the cache-leak mitigation is that header, and `protect` cannot set it
- * for you across an unknown framework.
- *
- * It has no runtime dependencies and does not know about any HTTP framework or
- * about `@x402/core`: the caller passes plain callbacks. A Hono, Express, or
- * `@x402/core`-hook binding is a thin wrapper that supplies those callbacks.
- * Verify BEFORE calling `protect`; the nonce it reserves must be the one the
- * facilitator authenticated (see the malleability note in the nonce store).
+ * and releases the reservation if the settle fails or finality is not reached, so the
+ * payer can retry. On a grant the caller MUST apply the returned `cacheControl` to the
+ * response: that header is the cache-leak mitigation, and `protect` cannot set it
+ * across an unknown framework. Verify BEFORE calling; the nonce reserved must be the
+ * one the facilitator authenticated (see the malleability note in the nonce store).
  */
 import { paidResponseCacheDirectives } from "./cache.js";
 import { type GuardError, guardError } from "./error.js";
@@ -35,18 +22,30 @@ import { tryCatchAsync } from "./result.js";
 /** Why a `protect` call did not grant: a guard deny, a failed settle, or non-finality. */
 export type ProtectDenyReason = GuardErrorCode | "settle-failed" | "not-final";
 
-export interface ProtectHandlers<TResource> {
+interface ProtectHandlersBase<TResource> {
   /** Settle the payment through your facilitator. Resolve `true` iff it settled. */
   settle(): Promise<boolean>;
   /** Deliver the resource once the payment is safe to grant. */
   deliver(): TResource | Promise<TResource>;
-  /**
-   * Optional finality gate: resolve `true` once the settlement has reached the
-   * confirmations you require for this chain. Omit it to grant on settle success
-   * (finality then rests with the facilitator and the chain).
-   */
-  confirm?(): Promise<boolean>;
 }
+
+/**
+ * The settle/deliver callbacks plus an explicit finality posture. Finality is a
+ * required discriminant, not an optional callback, so granting at zero confirmations
+ * is a decision made at the call site, never an implicit default for a security toggle.
+ *
+ * - `finality: "facilitator"` grants on settle success; finality then rests with the
+ *   facilitator and the chain.
+ * - `finality: "confirm"` holds the grant until `confirm()` resolves `true`. A
+ *   `confirm` that rejects or resolves `false` is treated as not-yet-final: the
+ *   reservation is released and the grant withheld.
+ */
+export type ProtectHandlers<TResource> =
+  | (ProtectHandlersBase<TResource> & { readonly finality: "facilitator" })
+  | (ProtectHandlersBase<TResource> & {
+      readonly finality: "confirm";
+      confirm(): Promise<boolean>;
+    });
 
 /** The decision `protect` returns: granted with the resource, or denied with a reason. */
 export type ProtectDecision<TResource> =
@@ -68,18 +67,21 @@ export async function protect<TResource>(
     return { granted: false, reason: reservation.reason };
   }
 
-  // A settle callback that rejects (a transient facilitator/RPC error is the
-  // common case) is a failed settle, not a grant: release so the payer can retry.
+  // A settle callback that rejects (a transient facilitator/RPC error) is a failed
+  // settle, not a grant: release so the payer can retry.
   const settled = await tryCatchAsync(() => handlers.settle());
   if (!settled.ok || !settled.value) {
     await reservation.release();
     return { granted: false, reason: guardError("settle-failed", "payment did not settle") };
   }
 
-  if (handlers.confirm !== undefined) {
-    // A confirm that rejects is treated as not-yet-final for the same reason:
-    // withhold the grant and free the nonce rather than leak a delivery.
-    const final = await tryCatchAsync(handlers.confirm);
+  // Fail closed on finality: only the explicit "facilitator" posture grants at settle
+  // success. Any other value (a missing or misspelled `finality` from a non-TS caller)
+  // must clear the confirm gate; a missing `confirm` throws and becomes a not-final
+  // deny, never an unintended zero-confirmation grant.
+  if (handlers.finality !== "facilitator") {
+    // A confirm that rejects is not-yet-final too: withhold and free the nonce.
+    const final = await tryCatchAsync(() => handlers.confirm());
     if (!final.ok || !final.value) {
       await reservation.release();
       return { granted: false, reason: guardError("not-final", "settlement not final") };

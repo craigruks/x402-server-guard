@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { guardError } from "./error.js";
 import { createGuard } from "./guard.js";
-import { createMemoryNonceStore, type NonceStore } from "./nonce-store.js";
+import {
+  createMemoryNonceStore,
+  type NonceStore,
+  type ReserveError,
+  type ReserveOutcome,
+} from "./nonce-store.js";
 import { err, ok } from "./result.js";
 
 const params = (nonce: string) => ({ nonce, resource: "/r", expiresAt: 2_000_000_000 });
@@ -62,7 +67,7 @@ describe("createGuard reserve", () => {
 
   it("denies an already-expired authorization", async () => {
     // Clock fixed at 1000; the authorization's window closed at 500.
-    const guard = createGuard({ store: createMemoryNonceStore(() => 1000) });
+    const guard = createGuard({ store: createMemoryNonceStore({ now: () => 1000 }) });
     const decision = await guard.reserve({ nonce: "0xexp", resource: "/r", expiresAt: 500 });
     expect(decision.reserved).toBe(false);
     if (!decision.reserved) {
@@ -102,8 +107,10 @@ describe("createGuard reserve", () => {
     });
   });
 
-  it("fails closed when the store errors", async () => {
-    const original = guardError("store-down", "boom");
+  it("collapses an unrecognized store error to store-unavailable (fail closed)", async () => {
+    // A store returning an off-contract code must still fail closed.
+    // biome-ignore lint/plugin: off-contract code cast past ReserveError, guard must collapse it
+    const original = guardError("store-down", "boom") as unknown as ReserveError;
     const failing: NonceStore = {
       reserve: () => Promise.resolve(err(original)),
       release: () => Promise.resolve(ok({ status: "released" as const })),
@@ -114,6 +121,21 @@ describe("createGuard reserve", () => {
     if (!decision.reserved) {
       expect(decision.reason.code).toBe("store-unavailable");
       expect(decision.reason.cause).toBe(original);
+    }
+  });
+
+  it("surfaces store-at-capacity as its own reason (backpressure, not an outage)", async () => {
+    // A cap of 1: the second distinct nonce cannot get a slot. The guard forwards
+    // store-at-capacity rather than collapsing it, so a caller can tell a full
+    // store (retry later) from a down one.
+    const guard = createGuard({
+      store: createMemoryNonceStore({ now: () => 1000, maxEntries: 1 }),
+    });
+    expect((await guard.reserve(params("0xa"))).reserved).toBe(true);
+    const decision = await guard.reserve(params("0xb"));
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("store-at-capacity");
     }
   });
 
@@ -131,6 +153,21 @@ describe("createGuard reserve", () => {
     if (!decision.reserved) {
       expect(decision.reason.code).toBe("store-unavailable");
       expect(decision.reason.cause).toBe(boom);
+    }
+  });
+
+  it("fails closed on an off-contract store status instead of returning undefined", async () => {
+    // A misbehaving adapter returns an off-contract status; the guard must deny, not throw.
+    const misbehaving: NonceStore = {
+      // biome-ignore lint/plugin: off-contract status cast past ReserveOutcome, switch default must fail closed
+      reserve: () => Promise.resolve(ok({ status: "teleported" } as unknown as ReserveOutcome)),
+      release: () => Promise.resolve(ok({ status: "released" as const })),
+    };
+    const guard = createGuard({ store: misbehaving });
+    const decision = await guard.reserve(params("0xweird"));
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("store-unavailable");
     }
   });
 });

@@ -56,7 +56,8 @@ if (!final) {
 return c.json(deliver(), 200);               // only now is it safe to grant
 ```
 
-`protect()` runs exactly this order for you when you pass a `confirm()` callback.
+`protect()` runs exactly this order for you when you set `finality: "confirm"` (with
+a `confirm()` callback).
 
 ## Two safety properties worth understanding
 

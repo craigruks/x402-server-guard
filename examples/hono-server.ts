@@ -63,6 +63,9 @@ app.get("/report", async (c) => {
     {
       settle: () => facilitator.settle(verified.nonce),
       deliver: () => ({ report: "paid content" }),
+      // Grant on settle success: finality rests with the facilitator and the chain.
+      // Use `finality: "confirm"` with a callback to hold for k confirmations.
+      finality: "facilitator",
     },
   );
 
