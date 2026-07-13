@@ -12,6 +12,7 @@
  * resource-server lifecycle hooks; a hand-rolled server can call `reserve`
  * directly.
  */
+import { canonicalNonce, canonicalResource } from "./canonical.js";
 import { type GuardError, guardError } from "./error.js";
 import {
   createMemoryNonceStore,
@@ -33,6 +34,19 @@ export type GuardErrorCode =
 export interface GuardOptions {
   /** Where reserved nonces are tracked. Defaults to an in-memory store. */
   store?: NonceStore;
+  /**
+   * Fold a nonce to a canonical key before it is reserved, so two encodings of one
+   * nonce cannot become two grants. Defaults to {@link canonicalNonce} (lowercase,
+   * strip `0x`). Pass a custom function for a bespoke nonce scope, or the identity
+   * `(n) => n` to opt out and key on the exact bytes.
+   */
+  canonicalizeNonce?: (nonce: string) => string;
+  /**
+   * Fold the resource to a canonical key before it is bound. Defaults to
+   * {@link canonicalResource} (URL scheme/host casing). Pass the identity
+   * `(r) => r` to opt out.
+   */
+  canonicalizeResource?: (resource: string) => string;
 }
 
 /**
@@ -60,9 +74,18 @@ export interface Guard {
 /** Create a guard backed by an in-memory nonce store (or a supplied one). */
 export function createGuard(options: GuardOptions = {}): Guard {
   const store = options.store ?? createMemoryNonceStore();
+  const canonicalizeNonce = options.canonicalizeNonce ?? canonicalNonce;
+  const canonicalizeResource = options.canonicalizeResource ?? canonicalResource;
   return {
     async reserve(params: ReserveParams): Promise<Reservation> {
-      const result = await callStore(() => store.reserve(params));
+      // Fold both keys to a canonical form up front, so two encodings of one nonce
+      // cannot each win a reservation, and one resource in two encodings does not
+      // read as a substitution. Everything below keys on the canonical values.
+      const nonce = canonicalizeNonce(params.nonce);
+      const resource = canonicalizeResource(params.resource);
+      const result = await callStore(() =>
+        store.reserve({ nonce, resource, expiresAt: params.expiresAt }),
+      );
       if (!result.ok) {
         // Surface the known store codes as-is (callStore already mapped throws to
         // store-unavailable). Defensive: collapse an unrecognized code from a
@@ -77,15 +100,15 @@ export function createGuard(options: GuardOptions = {}): Guard {
       switch (result.value.status) {
         case "reserved": {
           const { token } = result.value;
-          return { reserved: true, release: () => releaseReservation(store, params.nonce, token) };
+          return { reserved: true, release: () => releaseReservation(store, nonce, token) };
         }
         case "already-reserved":
           // The nonce is taken. If it was first bound to a DIFFERENT resource,
           // this is a cross-resource substitution attempt, not a plain replay:
           // one payment cannot be spent across two resources. Report it distinctly
-          // so the merchant can tell substitution from an ordinary retry. The
-          // resource is compared as a canonical key (see ReserveParams.resource).
-          if (result.value.boundResource !== params.resource) {
+          // so the merchant can tell substitution from an ordinary retry. Both sides
+          // are canonical keys (boundResource was stored canonical; see canonical.ts).
+          if (result.value.boundResource !== resource) {
             return {
               reserved: false,
               reason: guardError(

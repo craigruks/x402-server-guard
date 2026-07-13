@@ -21,6 +21,7 @@ export {
   isStorableBySharedCache,
   paidResponseCacheDirectives,
 } from "./cache.js";
+export { canonicalNonce, canonicalResource } from "./canonical.js";
 export { type GuardError, guardError } from "./error.js";
 export {
   createGuard,
