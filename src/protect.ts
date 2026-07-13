@@ -35,18 +35,33 @@ import { tryCatchAsync } from "./result.js";
 /** Why a `protect` call did not grant: a guard deny, a failed settle, or non-finality. */
 export type ProtectDenyReason = GuardErrorCode | "settle-failed" | "not-final";
 
-export interface ProtectHandlers<TResource> {
+interface ProtectHandlersBase<TResource> {
   /** Settle the payment through your facilitator. Resolve `true` iff it settled. */
   settle(): Promise<boolean>;
   /** Deliver the resource once the payment is safe to grant. */
   deliver(): TResource | Promise<TResource>;
-  /**
-   * Optional finality gate: resolve `true` once the settlement has reached the
-   * confirmations you require for this chain. Omit it to grant on settle success
-   * (finality then rests with the facilitator and the chain).
-   */
-  confirm?(): Promise<boolean>;
 }
+
+/**
+ * The settle/deliver callbacks plus an explicit finality posture. Finality is a
+ * required discriminant, not an optional callback, so granting at zero
+ * confirmations is a decision made at the call site, never an implicit default for
+ * a security toggle.
+ *
+ * - `finality: "facilitator"` grants on settle success; finality then rests with
+ *   the facilitator and the chain. Right for a single-sequencer L2 like Base,
+ *   where reorgs are rare and hard to force.
+ * - `finality: "confirm"` holds the grant until `confirm()` resolves `true` (the
+ *   settlement reached the confirmations you require for this chain). A `confirm`
+ *   that rejects or resolves `false` is treated as not-yet-final: the reservation
+ *   is released and the grant withheld.
+ */
+export type ProtectHandlers<TResource> =
+  | (ProtectHandlersBase<TResource> & { readonly finality: "facilitator" })
+  | (ProtectHandlersBase<TResource> & {
+      readonly finality: "confirm";
+      confirm(): Promise<boolean>;
+    });
 
 /** The decision `protect` returns: granted with the resource, or denied with a reason. */
 export type ProtectDecision<TResource> =
@@ -76,10 +91,10 @@ export async function protect<TResource>(
     return { granted: false, reason: guardError("settle-failed", "payment did not settle") };
   }
 
-  if (handlers.confirm !== undefined) {
+  if (handlers.finality === "confirm") {
     // A confirm that rejects is treated as not-yet-final for the same reason:
     // withhold the grant and free the nonce rather than leak a delivery.
-    const final = await tryCatchAsync(handlers.confirm);
+    const final = await tryCatchAsync(() => handlers.confirm());
     if (!final.ok || !final.value) {
       await reservation.release();
       return { granted: false, reason: guardError("not-final", "settlement not final") };

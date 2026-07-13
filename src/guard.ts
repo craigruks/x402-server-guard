@@ -18,6 +18,7 @@ import {
   type NonceStore,
   type ReleaseOutcome,
   type ReserveParams,
+  type StoreError,
 } from "./nonce-store.js";
 import { err, type Result, tryCatchAsync } from "./result.js";
 
@@ -26,7 +27,8 @@ export type GuardErrorCode =
   | "nonce-already-reserved"
   | "nonce-resource-mismatch"
   | "nonce-expired"
-  | "store-unavailable";
+  | "store-unavailable"
+  | "store-at-capacity";
 
 export interface GuardOptions {
   /** Where reserved nonces are tracked. Defaults to an in-memory store. */
@@ -43,7 +45,7 @@ export interface GuardOptions {
  * reservation simply expires with the authorization.
  */
 export type Reservation =
-  | { readonly reserved: true; release(): Promise<Result<ReleaseOutcome, GuardError>> }
+  | { readonly reserved: true; release(): Promise<Result<ReleaseOutcome, StoreError>> }
   | { readonly reserved: false; readonly reason: GuardError<GuardErrorCode> };
 
 export interface Guard {
@@ -60,27 +62,18 @@ export function createGuard(options: GuardOptions = {}): Guard {
   const store = options.store ?? createMemoryNonceStore();
   return {
     async reserve(params: ReserveParams): Promise<Reservation> {
-      // Wrap the store call so a store that THROWS or REJECTS fails closed too,
-      // not only one that returns `err`. A distributed adapter (Redis SET NX, a
-      // Durable Object fetch) rejects on an I/O failure, which is the store
-      // outage the fail-closed guarantee exists for. `tryCatchAsync` turns that
-      // rejection into a value; a raw `await store.reserve(...)` would let it
-      // escape as an uncaught rejection and make fail-closed framework-dependent.
-      const outcome = await tryCatchAsync(() => store.reserve(params));
-      if (!outcome.ok) {
-        // The store threw or rejected.
-        return {
-          reserved: false,
-          reason: guardError("store-unavailable", "nonce store unavailable", outcome.error),
-        };
-      }
-      const result = outcome.value;
+      const result = await callStore(() => store.reserve(params));
       if (!result.ok) {
-        // The store returned a failure value. Fail closed: never an accidental grant.
-        return {
-          reserved: false,
-          reason: guardError("store-unavailable", "nonce store unavailable", result.error),
-        };
+        // callStore already reduced a thrown/rejected store to `store-unavailable`.
+        // Surface the recognized store codes as-is (`store-at-capacity` so a caller
+        // can tell backpressure from an outage, `store-unavailable` with its cause
+        // intact); collapse anything unrecognized to a fail-closed store-unavailable.
+        const error = result.error;
+        const reason =
+          error.code === "store-at-capacity" || error.code === "store-unavailable"
+            ? error
+            : guardError("store-unavailable", "nonce store unavailable", error);
+        return { reserved: false, reason };
       }
       switch (result.value.status) {
         case "reserved": {
@@ -116,15 +109,28 @@ export function createGuard(options: GuardOptions = {}): Guard {
   };
 }
 
-/** Release a reservation through the store, mapping a store throw to a fail-closed error. */
-async function releaseReservation(
-  store: NonceStore,
-  nonce: string,
-  token: string,
-): Promise<Result<ReleaseOutcome, GuardError>> {
-  const outcome = await tryCatchAsync(() => store.release(nonce, token));
+/**
+ * Call a store operation with the fail-closed guarantee in one place. A store that
+ * THROWS or REJECTS (a distributed adapter rejects on an I/O outage) becomes a
+ * `store-unavailable` value rather than escaping as an uncaught rejection, so
+ * fail-closed does not depend on the framework or on each adapter author. A store
+ * that returns an error value is passed through for the caller to map.
+ */
+async function callStore<T, E extends GuardError>(
+  op: () => Promise<Result<T, E>>,
+): Promise<Result<T, E | StoreError>> {
+  const outcome = await tryCatchAsync(op);
   if (!outcome.ok) {
     return err(guardError("store-unavailable", "nonce store unavailable", outcome.error));
   }
   return outcome.value;
+}
+
+/** Release a reservation through the store, mapping a store throw to a fail-closed error. */
+function releaseReservation(
+  store: NonceStore,
+  nonce: string,
+  token: string,
+): Promise<Result<ReleaseOutcome, StoreError>> {
+  return callStore(() => store.release(nonce, token));
 }

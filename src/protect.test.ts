@@ -14,6 +14,7 @@ describe("protect", () => {
     const decision = await protect(guard, request("0xa"), {
       settle: () => Promise.resolve(true),
       deliver: () => "the-resource",
+      finality: "facilitator",
     });
     expect(decision.granted).toBe(true);
     if (decision.granted) {
@@ -27,10 +28,15 @@ describe("protect", () => {
     await protect(guard, request("0xa"), {
       settle: () => Promise.resolve(true),
       deliver: () => "first",
+      finality: "facilitator",
     });
     const settle = vi.fn(() => Promise.resolve(true));
     const deliver = vi.fn(() => "second");
-    const decision = await protect(guard, request("0xa"), { settle, deliver });
+    const decision = await protect(guard, request("0xa"), {
+      settle,
+      deliver,
+      finality: "facilitator",
+    });
     expect(decision.granted).toBe(false);
     if (!decision.granted) {
       expect(decision.reason.code).toBe("nonce-already-reserved");
@@ -44,10 +50,12 @@ describe("protect", () => {
     await protect(guard, request("0xa", "/report-A"), {
       settle: () => Promise.resolve(true),
       deliver: () => "A",
+      finality: "facilitator",
     });
     const decision = await protect(guard, request("0xa", "/report-B"), {
       settle: () => Promise.resolve(true),
       deliver: () => "B",
+      finality: "facilitator",
     });
     expect(decision.granted).toBe(false);
     if (!decision.granted) {
@@ -60,6 +68,7 @@ describe("protect", () => {
     const failed = await protect(guard, request("0xa"), {
       settle: () => Promise.resolve(false),
       deliver: () => "never",
+      finality: "facilitator",
     });
     expect(failed.granted).toBe(false);
     if (!failed.granted) {
@@ -69,6 +78,7 @@ describe("protect", () => {
     const retry = await protect(guard, request("0xa"), {
       settle: () => Promise.resolve(true),
       deliver: () => "retry",
+      finality: "facilitator",
     });
     expect(retry.granted).toBe(true);
   });
@@ -79,6 +89,7 @@ describe("protect", () => {
     const decision = await protect(guard, request("0xa"), {
       settle: () => Promise.reject(new Error("facilitator timeout")),
       deliver,
+      finality: "facilitator",
     });
     expect(decision.granted).toBe(false);
     if (!decision.granted) {
@@ -89,6 +100,7 @@ describe("protect", () => {
     const retry = await protect(guard, request("0xa"), {
       settle: () => Promise.resolve(true),
       deliver: () => "retry",
+      finality: "facilitator",
     });
     expect(retry.granted).toBe(true);
   });
@@ -98,6 +110,7 @@ describe("protect", () => {
     const deliver = vi.fn(() => "never");
     const decision = await protect(guard, request("0xz"), {
       settle: () => Promise.resolve(true),
+      finality: "confirm",
       confirm: () => Promise.reject(new Error("rpc error")),
       deliver,
     });
@@ -108,6 +121,7 @@ describe("protect", () => {
     expect(deliver).not.toHaveBeenCalled();
     const retry = await protect(guard, request("0xz"), {
       settle: () => Promise.resolve(true),
+      finality: "confirm",
       confirm: () => Promise.resolve(true),
       deliver: () => "retry",
     });
@@ -118,6 +132,7 @@ describe("protect", () => {
     const guard = createGuard();
     const decision = await protect(guard, request("0xok"), {
       settle: () => Promise.resolve(true),
+      finality: "confirm",
       confirm: () => Promise.resolve(true),
       deliver: () => "final",
     });
@@ -129,6 +144,7 @@ describe("protect", () => {
     const deliver = vi.fn(() => "never");
     const decision = await protect(guard, request("0xz"), {
       settle: () => Promise.resolve(true),
+      finality: "confirm",
       confirm: () => Promise.resolve(false),
       deliver,
     });
@@ -140,6 +156,7 @@ describe("protect", () => {
     // Released: retryable.
     const retry = await protect(guard, request("0xz"), {
       settle: () => Promise.resolve(true),
+      finality: "confirm",
       confirm: () => Promise.resolve(true),
       deliver: () => "retry",
     });

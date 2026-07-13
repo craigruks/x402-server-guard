@@ -62,7 +62,7 @@ describe("createGuard reserve", () => {
 
   it("denies an already-expired authorization", async () => {
     // Clock fixed at 1000; the authorization's window closed at 500.
-    const guard = createGuard({ store: createMemoryNonceStore(() => 1000) });
+    const guard = createGuard({ store: createMemoryNonceStore({ now: () => 1000 }) });
     const decision = await guard.reserve({ nonce: "0xexp", resource: "/r", expiresAt: 500 });
     expect(decision.reserved).toBe(false);
     if (!decision.reserved) {
@@ -102,18 +102,36 @@ describe("createGuard reserve", () => {
     });
   });
 
-  it("fails closed when the store errors", async () => {
+  it("collapses an unrecognized store error to store-unavailable (fail closed)", async () => {
+    // A store returning an off-contract code (violating the NonceStore error type)
+    // must still fail closed. The cast simulates such a misbehaving adapter; the
+    // guard collapses anything it does not recognize to store-unavailable.
     const original = guardError("store-down", "boom");
-    const failing: NonceStore = {
+    const failing = {
       reserve: () => Promise.resolve(err(original)),
       release: () => Promise.resolve(ok({ status: "released" as const })),
-    };
+    } as unknown as NonceStore;
     const guard = createGuard({ store: failing });
     const decision = await guard.reserve(params("0xabc"));
     expect(decision.reserved).toBe(false);
     if (!decision.reserved) {
       expect(decision.reason.code).toBe("store-unavailable");
       expect(decision.reason.cause).toBe(original);
+    }
+  });
+
+  it("surfaces store-at-capacity as its own reason (backpressure, not an outage)", async () => {
+    // A cap of 1: the second distinct nonce cannot get a slot. The guard forwards
+    // store-at-capacity rather than collapsing it, so a caller can tell a full
+    // store (retry later) from a down one.
+    const guard = createGuard({
+      store: createMemoryNonceStore({ now: () => 1000, maxEntries: 1 }),
+    });
+    expect((await guard.reserve(params("0xa"))).reserved).toBe(true);
+    const decision = await guard.reserve(params("0xb"));
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("store-at-capacity");
     }
   });
 
