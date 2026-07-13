@@ -1,21 +1,16 @@
 ---
 title: x402-server-guard
 description: Server-side hardening for x402 payment endpoints.
-template: splash
-hero:
-  tagline: Wrap your x402 payment endpoint to close the settlement race, replay, cross-resource substitution, grant-before-finality, and cache-leakage holes. Vulnerable code first, fixed code second, on every page.
-  actions:
-    - text: Read the guide
-      link: /x402-server-guard/getting-started/understanding-x402/
-      icon: right-arrow
-      variant: primary
-    - text: GitHub
-      link: https://github.com/craigruks/x402-server-guard
-      icon: external
-      variant: minimal
 ---
 
-import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import { CardGrid, LinkCard, LinkButton } from "@astrojs/starlight/components";
+
+Wrap your x402 payment endpoint to close the settlement race, replay,
+cross-resource substitution, grant-before-finality, and cache-leakage holes.
+Vulnerable code first, fixed code second, on every page.
+
+<LinkButton href="/x402-server-guard/getting-started/understanding-x402/">Read the guide</LinkButton>
+<LinkButton href="https://github.com/craigruks/x402-server-guard" variant="secondary" icon="external">GitHub</LinkButton>
 
 This is the teaching companion to the library. It explains, without assuming you
 know crypto, what each attack is, how it lets someone cheat a paid endpoint, and
