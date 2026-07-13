@@ -55,9 +55,13 @@ pr:
 
 # --- release ---
 
-# Create a changeset describing the current change.
-changeset:
-    npm run changeset
+# Cut a release: bump the version, commit, tag, and push. Then create a GitHub
+# Release for the new tag (Releases > Draft a new release > pick the tag >
+# Generate release notes > Publish), which triggers .github/workflows/publish.yml
+# to publish to npm with provenance. `bump` is patch | minor | major | a version.
+release bump:
+    npm version {{bump}}
+    git push --follow-tags
 
 # Show exactly what a publish would include, without publishing.
 publish-dry:
