@@ -49,6 +49,9 @@ export class GuardedResourceServer<TResource> {
     // Settle before granting: a payment that does not settle yields no resource.
     const settlement = await this.facilitator.settle(payload, requirements);
     if (!settlement.success) {
+      // Release the hold so the payer can retry the same authorization: the
+      // settle did not stick, so the nonce should not stay burned until expiry.
+      await reservation.release();
       return {
         granted: false,
         settlement: { ok: false, reason: settlement.errorReason ?? "settle failed" },

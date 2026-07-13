@@ -13,8 +13,13 @@
  * directly.
  */
 import { type GuardError, guardError } from "./error.js";
-import { createMemoryNonceStore, type NonceStore, type ReserveParams } from "./nonce-store.js";
-import { tryCatchAsync } from "./result.js";
+import {
+  createMemoryNonceStore,
+  type NonceStore,
+  type ReleaseOutcome,
+  type ReserveParams,
+} from "./nonce-store.js";
+import { err, type Result, tryCatchAsync } from "./result.js";
 
 /** The deny reasons a reservation can carry. */
 export type GuardErrorCode =
@@ -28,9 +33,17 @@ export interface GuardOptions {
   store?: NonceStore;
 }
 
-/** A guard decision: reserved (grant may proceed) or denied with a typed reason. */
+/**
+ * A guard decision: reserved (grant may proceed) or denied with a typed reason.
+ *
+ * The reserved handle carries `release`, to free the nonce if the payment does not
+ * go through (a settlement that fails or is reorged before finality), so the payer
+ * can retry the same authorization. The fencing token that authorizes the release
+ * is held inside the handle, never exposed. Not calling `release` is safe: the
+ * reservation simply expires with the authorization.
+ */
 export type Reservation =
-  | { readonly reserved: true }
+  | { readonly reserved: true; release(): Promise<Result<ReleaseOutcome, GuardError>> }
   | { readonly reserved: false; readonly reason: GuardError<GuardErrorCode> };
 
 export interface Guard {
@@ -70,8 +83,10 @@ export function createGuard(options: GuardOptions = {}): Guard {
         };
       }
       switch (result.value.status) {
-        case "reserved":
-          return { reserved: true };
+        case "reserved": {
+          const { token } = result.value;
+          return { reserved: true, release: () => releaseReservation(store, params.nonce, token) };
+        }
         case "already-reserved":
           // The nonce is taken. If it was first bound to a DIFFERENT resource,
           // this is a cross-resource substitution attempt, not a plain replay:
@@ -99,4 +114,17 @@ export function createGuard(options: GuardOptions = {}): Guard {
       }
     },
   };
+}
+
+/** Release a reservation through the store, mapping a store throw to a fail-closed error. */
+async function releaseReservation(
+  store: NonceStore,
+  nonce: string,
+  token: string,
+): Promise<Result<ReleaseOutcome, GuardError>> {
+  const outcome = await tryCatchAsync(() => store.release(nonce, token));
+  if (!outcome.ok) {
+    return err(guardError("store-unavailable", "nonce store unavailable", outcome.error));
+  }
+  return outcome.value;
 }

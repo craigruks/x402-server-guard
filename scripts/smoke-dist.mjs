@@ -23,6 +23,23 @@ const expired = await expiredGuard.reserve({ nonce: "0xexp", resource: "/report"
 assert.equal(expired.reserved, false, "expired authorization should be denied");
 assert.equal(expired.reason.code, "nonce-expired", "expiry deny should carry the typed code");
 
+// The reserved handle can release the nonce, freeing it for a retry.
+const relGuard = createGuard();
+const held = await relGuard.reserve({
+  nonce: "0xrelease",
+  resource: "/report",
+  expiresAt: 2_000_000_000,
+});
+assert.equal(held.reserved, true, "reserve should succeed");
+const released = await held.release();
+assert.equal(released.ok && released.value.status, "released", "release should free the nonce");
+const reReserve = await relGuard.reserve({
+  nonce: "0xrelease",
+  resource: "/report",
+  expiresAt: 2_000_000_000,
+});
+assert.equal(reReserve.reserved, true, "released nonce should reserve again");
+
 // The store factory and error constructor are usable from the built package too.
 assert.ok(typeof createMemoryNonceStore === "function", "createMemoryNonceStore exported");
 assert.equal(guardError("x", "y").code, "x", "guardError exported and usable");

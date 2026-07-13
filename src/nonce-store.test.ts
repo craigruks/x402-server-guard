@@ -12,7 +12,7 @@ describe("MemoryNonceStore", () => {
     const store = new MemoryNonceStore();
     expect(await store.reserve(params("0xabc"))).toEqual({
       ok: true,
-      value: { status: "reserved" },
+      value: { status: "reserved", token: expect.any(String) },
     });
   });
 
@@ -27,8 +27,14 @@ describe("MemoryNonceStore", () => {
 
   it("reserves distinct nonces independently", async () => {
     const store = new MemoryNonceStore();
-    expect(await store.reserve(params("0xa"))).toEqual({ ok: true, value: { status: "reserved" } });
-    expect(await store.reserve(params("0xb"))).toEqual({ ok: true, value: { status: "reserved" } });
+    expect(await store.reserve(params("0xa"))).toEqual({
+      ok: true,
+      value: { status: "reserved", token: expect.any(String) },
+    });
+    expect(await store.reserve(params("0xb"))).toEqual({
+      ok: true,
+      value: { status: "reserved", token: expect.any(String) },
+    });
   });
 
   it("is atomic: only one of N concurrent reserves of one nonce wins", async () => {
@@ -57,7 +63,7 @@ describe("MemoryNonceStore", () => {
     clock = 1020;
     expect(await store.reserve(params("0xexp", "/r", 1030))).toEqual({
       ok: true,
-      value: { status: "reserved" },
+      value: { status: "reserved", token: expect.any(String) },
     });
   });
 
@@ -93,5 +99,35 @@ describe("MemoryNonceStore", () => {
     await store.reserve(params("0xfresh", "/r", 3000)); // triggers a sweep
     // The 50 expired are dropped; the live one and the fresh one remain.
     expect(store.size).toBe(2);
+  });
+
+  it("releases a reservation for the holder of the token, freeing the nonce", async () => {
+    const store = new MemoryNonceStore();
+    const reserved = await store.reserve(params("0xr"));
+    if (!reserved.ok || reserved.value.status !== "reserved") throw new Error("expected reserved");
+    const { token } = reserved.value;
+
+    expect(await store.release("0xr", token)).toEqual({ ok: true, value: { status: "released" } });
+    expect(store.size).toBe(0);
+    // Freed: the nonce can be reserved again.
+    expect((await store.reserve(params("0xr"))).ok).toBe(true);
+  });
+
+  it("does not release with a wrong token (fencing)", async () => {
+    const store = new MemoryNonceStore();
+    await store.reserve(params("0xr"));
+    expect(await store.release("0xr", "not-the-token")).toEqual({
+      ok: true,
+      value: { status: "not-held" },
+    });
+    expect(store.size).toBe(1); // still reserved
+  });
+
+  it("releasing an unknown nonce frees nothing", async () => {
+    const store = new MemoryNonceStore();
+    expect(await store.release("0xnope", "any")).toEqual({
+      ok: true,
+      value: { status: "not-held" },
+    });
   });
 });

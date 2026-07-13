@@ -18,7 +18,15 @@
  * real guard's k is a per-chain setting, not the constant used here.
  */
 import { describe, expect, it } from "vitest";
-import { createTestbed, FINALITY_CONFIRMATIONS, makePayment, newNonce } from "../harness/index.js";
+import { createGuard } from "../../src/index.js";
+import {
+  createTestbed,
+  FakeChain,
+  FakeFacilitator,
+  FINALITY_CONFIRMATIONS,
+  makePayment,
+  newNonce,
+} from "../harness/index.js";
 
 describe("attack: grant-before-finality", () => {
   it("delivers the resource against a payment a reorg then reverts", async () => {
@@ -58,5 +66,57 @@ describe("attack: grant-before-finality", () => {
     expect(reverted).toBe(false);
     expect(chain.isConsumed(nonce)).toBe(true);
     expect(chain.settledCount).toBe(1);
+  });
+});
+
+describe("guarded: grant-before-finality", () => {
+  const RESOURCE = "https://api.example.com/report";
+  const EXPIRES_AT = 2_000_000_000;
+
+  it("withholds the resource until finality and releases the nonce when a pre-finality settlement reorgs", async () => {
+    const chain = new FakeChain();
+    const facilitator = new FakeFacilitator(chain);
+    const guard = createGuard();
+    const nonce = newNonce();
+    const { payload, requirements } = makePayment({ nonce });
+
+    // Secure flow: reserve, settle, then HOLD. The guarded server does not grant
+    // at zero confirmations; it waits for FINALITY_CONFIRMATIONS.
+    const reservation = await guard.reserve({ nonce, resource: RESOURCE, expiresAt: EXPIRES_AT });
+    expect(reservation.reserved).toBe(true);
+    if (!reservation.reserved) return;
+    const settle = await facilitator.settle(payload, requirements);
+    expect(settle.success).toBe(true);
+    expect(chain.confirmationsOf(nonce)).toBe(0); // not final yet: no grant
+
+    // A reorg drops the not-yet-final settlement before any grant.
+    expect(chain.reorg(nonce)).toBe(true);
+    expect(chain.isConsumed(nonce)).toBe(false);
+
+    // Seeing the settlement reverted, the server releases the hold and denies.
+    expect(await reservation.release()).toEqual({ ok: true, value: { status: "released" } });
+
+    // Nothing was granted, and because the nonce was released the payer can retry
+    // the same authorization once resubmitted (it was never consumed on-chain).
+    const retry = await guard.reserve({ nonce, resource: RESOURCE, expiresAt: EXPIRES_AT });
+    expect(retry.reserved).toBe(true);
+  });
+
+  it("grants once the settlement reaches finality, which a reorg can no longer revert", async () => {
+    const chain = new FakeChain();
+    const facilitator = new FakeFacilitator(chain);
+    const guard = createGuard();
+    const nonce = newNonce();
+    const { payload, requirements } = makePayment({ nonce });
+
+    const reservation = await guard.reserve({ nonce, resource: RESOURCE, expiresAt: EXPIRES_AT });
+    expect(reservation.reserved).toBe(true);
+    expect((await facilitator.settle(payload, requirements)).success).toBe(true);
+
+    // Bury the settlement past finality: only now does the guarded server grant.
+    chain.mineBlocks(FINALITY_CONFIRMATIONS);
+    expect(chain.confirmationsOf(nonce)).toBeGreaterThanOrEqual(FINALITY_CONFIRMATIONS);
+    expect(chain.reorg(nonce)).toBe(false); // too deep to revert: the grant is safe
+    expect(chain.isConsumed(nonce)).toBe(true);
   });
 });

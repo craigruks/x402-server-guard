@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { guardError } from "./error.js";
 import { createGuard } from "./guard.js";
 import { createMemoryNonceStore, type NonceStore } from "./nonce-store.js";
-import { err } from "./result.js";
+import { err, ok } from "./result.js";
 
 const params = (nonce: string) => ({ nonce, resource: "/r", expiresAt: 2_000_000_000 });
 
@@ -70,10 +70,43 @@ describe("createGuard reserve", () => {
     }
   });
 
+  it("frees the nonce through the reservation's release handle", async () => {
+    const guard = createGuard();
+    const first = await guard.reserve(params("0xrel"));
+    expect(first.reserved).toBe(true);
+    if (!first.reserved) return;
+
+    const released = await first.release();
+    expect(released).toEqual({ ok: true, value: { status: "released" } });
+
+    // Released: the same nonce reserves again (a legit retry after a failed settle).
+    const second = await guard.reserve(params("0xrel"));
+    expect(second.reserved).toBe(true);
+  });
+
+  it("release fails closed when the store throws", async () => {
+    const boom = new Error("redis down on release");
+    const throwing: NonceStore = {
+      reserve: () => Promise.resolve(ok({ status: "reserved" as const, token: "t" })),
+      release: () => Promise.reject(boom),
+    };
+    const guard = createGuard({ store: throwing });
+    const reservation = await guard.reserve(params("0xz"));
+    expect(reservation.reserved).toBe(true);
+    if (!reservation.reserved) return;
+
+    const released = await reservation.release();
+    expect(released).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: "store-unavailable" }),
+    });
+  });
+
   it("fails closed when the store errors", async () => {
     const original = guardError("store-down", "boom");
     const failing: NonceStore = {
       reserve: () => Promise.resolve(err(original)),
+      release: () => Promise.resolve(ok({ status: "released" as const })),
     };
     const guard = createGuard({ store: failing });
     const decision = await guard.reserve(params("0xabc"));
@@ -90,6 +123,7 @@ describe("createGuard reserve", () => {
     const boom = new Error("redis connection refused");
     const throwing: NonceStore = {
       reserve: () => Promise.reject(boom),
+      release: () => Promise.reject(boom),
     };
     const guard = createGuard({ store: throwing });
     const decision = await guard.reserve(params("0xabc"));
