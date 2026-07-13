@@ -30,9 +30,7 @@ export type ExactEvmPayload = {
 };
 
 /** Result of attempting to consume a nonce on the fake chain. */
-export type SettlementResult =
-  | { ok: true; txHash: string }
-  | { ok: false; reason: "nonce-already-used" };
+export type SettlementResult = { ok: true; txHash: string } | { ok: false; reason: string };
 
 /** What the baseline resource server returns for one request. */
 export interface GrantResult<TResource> {

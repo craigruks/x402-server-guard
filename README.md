@@ -11,10 +11,10 @@ leaked to unpaid clients through a shared cache. This library is the enforcement
 layer a merchant wraps their endpoint in to close those gaps.
 
 > [!WARNING]
-> **Status: v0.1 scaffold.** This release establishes the toolchain, packaging,
-> and trust surface only. **No mitigations are implemented yet.** Do not depend on
-> it for protection. Follow the repository for the attack reproductions and fixes
-> landing next.
+> **Status: early, pre-1.0.** The duplicate-settlement race and payment replay
+> mitigation is implemented; the remaining classes below are still in progress. It
+> is **not audited** and is **not a security guarantee**. Do not treat the current
+> coverage as complete; see the mitigation table below for what is and is not done.
 
 ## Security disclaimer
 
@@ -23,6 +23,51 @@ audited** and is **not a security guarantee**. It mitigates specific, enumerated
 attack classes only. It cannot make an insecure payment endpoint safe on its own.
 **The authors accept no liability for any loss of funds or damages.** See
 [SECURITY.md](./SECURITY.md) and the [LICENSE](./LICENSE).
+
+## Usage
+
+Reserve a payment's nonce through the guard before you grant the resource. The
+first request for a nonce wins; a replay or a concurrent race is denied. The
+decision is a value, never a throw, so a stray `try/catch` cannot turn a deny
+into an accidental grant.
+
+```ts
+import { createGuard } from "@craigruks/x402-server-guard";
+
+const guard = createGuard();
+
+// Inside your paid handler, after the facilitator verifies the payment:
+const reservation = await guard.reserve({
+  nonce: authorization.nonce, // the EIP-3009 nonce
+  resource: request.url, // which resource this payment is for
+  expiresAt: Number(authorization.validBefore), // unix seconds
+});
+
+if (!reservation.reserved) {
+  return deny(reservation.reason.code); // e.g. "nonce-already-reserved"
+}
+
+// Settle before granting: a payment that fails to settle yields no resource.
+const settled = await facilitator.settle(payload, requirements);
+if (!settled.success) {
+  return deny("settle failed");
+}
+
+return grant(resource);
+```
+
+The reservation defaults to an in-memory store (single process). A store shared
+across serverless isolates needs a genuine atomic compare-and-set; see
+[`docs/hardening.md`](./docs/hardening.md). The one-call framework adapters
+(Express, Hono, Next, Fastify) land in a later chapter; for now this is the
+pattern to wire into a hand-rolled handler.
+
+A runnable version, including the concurrent race it blocks, is in
+[`examples/secure-flow.ts`](./examples/secure-flow.ts) (`npx tsx
+examples/secure-flow.ts`).
+
+This closes the duplicate-settlement race and payment replay. The other
+mitigations are still in progress; see the table below.
 
 ## Design principles
 
@@ -45,9 +90,9 @@ proving it blocked by the guard.
 
 | Attack class | Status |
 | --- | --- |
+| Duplicate-settlement race | done |
+| Payment replay | done (same nonce reservation) |
 | Cross-resource substitution | planned |
-| Payment replay | planned |
-| Duplicate-settlement race | planned |
 | Cache leakage of paid content | planned |
 | Grant-before-finality (k-confirmations) | planned |
 
