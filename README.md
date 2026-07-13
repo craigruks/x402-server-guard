@@ -11,10 +11,11 @@ leaked to unpaid clients through a shared cache. This library is the enforcement
 layer a merchant wraps their endpoint in to close those gaps.
 
 > [!WARNING]
-> **Status: early, pre-1.0.** The duplicate-settlement race and payment replay
-> mitigation is implemented; the remaining classes below are still in progress. It
-> is **not audited** and is **not a security guarantee**. Do not treat the current
-> coverage as complete; see the mitigation table below for what is and is not done.
+> **Status: early, pre-1.0.** The duplicate-settlement race, payment replay, and
+> cross-resource substitution mitigations are implemented; the remaining classes
+> below are still in progress. It is **not audited** and is **not a security
+> guarantee**. Do not treat the current coverage as complete; see the mitigation
+> table below for what is and is not done.
 
 ## Security disclaimer
 
@@ -92,7 +93,7 @@ proving it blocked by the guard.
 | --- | --- |
 | Duplicate-settlement race | done |
 | Payment replay | done (same nonce reservation) |
-| Cross-resource substitution | planned |
+| Cross-resource substitution | done |
 | Cache leakage of paid content | planned |
 | Grant-before-finality (k-confirmations) | planned |
 

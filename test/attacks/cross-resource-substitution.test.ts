@@ -21,11 +21,13 @@
  * serves; it is what that server-side binding attaches to.
  */
 import { describe, expect, it } from "vitest";
+import { createGuard } from "../../src/index.js";
 import {
   BaselineResourceServer,
   createTestbed,
   FakeChain,
   FakeFacilitator,
+  GuardedResourceServer,
   makePayment,
 } from "../harness/index.js";
 
@@ -65,6 +67,46 @@ describe("attack: cross-resource substitution", () => {
 
     expect(atB.granted).toBe(true); // B served using the payer's payment
     expect(atA.granted).toBe(false); // A denied: the nonce is already spent
+    expect(chain.settledCount).toBe(1);
+  });
+});
+
+describe("guarded: cross-resource substitution", () => {
+  it("binds the nonce to one resource and denies the other as a substitution", async () => {
+    // The guard binds at reserve, BEFORE settle, so it catches substitution in the
+    // window the on-chain nonce is not yet consumed, exactly where the facilitator's
+    // post-settle nonce check cannot help. Present one payment concurrently to two
+    // resources (A and B) behind one merchant, sharing one guard. A settlement
+    // latency keeps both verifies passing before either settle lands.
+    const chain = new FakeChain(25);
+    const guard = createGuard();
+    const serverA = new GuardedResourceServer(
+      new FakeFacilitator(chain),
+      guard,
+      () => "resource-A",
+      RESOURCE_A,
+    );
+    const serverB = new GuardedResourceServer(
+      new FakeFacilitator(chain),
+      guard,
+      () => "resource-B",
+      RESOURCE_B,
+    );
+    const { payload, requirements } = makePayment({ resourceUrl: RESOURCE_A });
+
+    const [atA, atB] = await Promise.all([
+      serverA.handle(payload, requirements),
+      serverB.handle(payload, requirements),
+    ]);
+
+    // Exactly one resource is served (the one that reserved first binds the nonce);
+    // the other is denied specifically as a substitution, not a plain replay.
+    const granted = [atA, atB].filter((r) => r.granted);
+    const denied = [atA, atB].filter((r) => !r.granted);
+    expect(granted).toHaveLength(1);
+    expect(denied).toHaveLength(1);
+    expect(denied[0]?.denial).toBe("nonce-resource-mismatch");
+    // Only the bound resource ever settled; the substitution never reached settle.
     expect(chain.settledCount).toBe(1);
   });
 });

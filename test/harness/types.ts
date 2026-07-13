@@ -10,6 +10,7 @@
  * so it drops into `PaymentPayload.payload` (a `Record<string, unknown>`)
  * without a cast. An interface would force one.
  */
+import type { GuardErrorCode } from "../../src/guard.js";
 
 /** The EIP-3009 `transferWithAuthorization` tuple carried in an exact-EVM payment. */
 export type ExactEvmAuthorization = {
@@ -40,4 +41,6 @@ export interface GrantResult<TResource> {
   resource?: TResource;
   /** The settlement outcome, present iff the server attempted settlement. */
   settlement?: SettlementResult;
+  /** The guard's deny reason, present iff a reservation was refused. */
+  denial?: GuardErrorCode;
 }

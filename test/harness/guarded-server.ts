@@ -43,7 +43,7 @@ export class GuardedResourceServer<TResource> {
       expiresAt: Number(validBefore),
     });
     if (!reservation.reserved) {
-      return { granted: false };
+      return { granted: false, denial: reservation.reason.code };
     }
 
     // Settle before granting: a payment that does not settle yields no resource.

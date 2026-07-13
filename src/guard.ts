@@ -2,10 +2,11 @@
  * The guard: server-side x402 hardening as decisions, not exceptions.
  *
  * A merchant reserves a payment's nonce before granting the resource. The first
- * request for a nonce is allowed; a replay or a concurrent race is denied. The
- * decision is a value (`Reservation`), never a throw, so a stray `try/catch`
- * cannot turn a deny into an accidental grant. A store failure fails closed: an
- * unavailable store denies, it never grants.
+ * request for a nonce is allowed; a replay or a concurrent race is denied, and a
+ * nonce re-presented for a different resource than it first bound to is denied as
+ * a cross-resource substitution. The decision is a value (`Reservation`), never a
+ * throw, so a stray `try/catch` cannot turn a deny into an accidental grant. A
+ * store failure fails closed: an unavailable store denies, it never grants.
  *
  * This is the framework-agnostic core. An adapter wires it into `@x402/core`'s
  * resource-server lifecycle hooks; a hand-rolled server can call `reserve`
@@ -16,7 +17,11 @@ import { createMemoryNonceStore, type NonceStore, type ReserveParams } from "./n
 import { tryCatchAsync } from "./result.js";
 
 /** The deny reasons a reservation can carry. */
-export type GuardErrorCode = "nonce-already-reserved" | "nonce-expired" | "store-unavailable";
+export type GuardErrorCode =
+  | "nonce-already-reserved"
+  | "nonce-resource-mismatch"
+  | "nonce-expired"
+  | "store-unavailable";
 
 export interface GuardOptions {
   /** Where reserved nonces are tracked. Defaults to an in-memory store. */
@@ -68,6 +73,20 @@ export function createGuard(options: GuardOptions = {}): Guard {
         case "reserved":
           return { reserved: true };
         case "already-reserved":
+          // The nonce is taken. If it was first bound to a DIFFERENT resource,
+          // this is a cross-resource substitution attempt, not a plain replay:
+          // one payment cannot be spent across two resources. Report it distinctly
+          // so the merchant can tell substitution from an ordinary retry. The
+          // resource is compared as a canonical key (see ReserveParams.resource).
+          if (result.value.boundResource !== params.resource) {
+            return {
+              reserved: false,
+              reason: guardError(
+                "nonce-resource-mismatch",
+                "payment nonce is bound to a different resource",
+              ),
+            };
+          }
           return {
             reserved: false,
             reason: guardError("nonce-already-reserved", "payment nonce is already reserved"),
