@@ -47,8 +47,8 @@ unavailable must deny, never grant; an unbounded structure must not be attacker
 growable; a thrown callback must not leak a grant. Findings from this axis have
 already changed the code, for example the fail-closed wrapping of a throwing store and
 the `maxEntries` cap on the in-memory store, and the release-on-throw hardening of
-`protect`. The canonical-key contract for nonces and resources is tracked in
-[issue #22](https://github.com/craigruks/x402-server-guard/issues/22).
+`protect`. The canonical-key contract for nonces and resources is enforced by the
+guard, which folds both to a canonical key by default (see `src/canonical.ts`).
 
 ## Where findings land
 

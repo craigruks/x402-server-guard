@@ -136,6 +136,18 @@ live entry (which would reopen the race). Peak retention is roughly
 `min(maxEntries, request_rate * validBefore_horizon)`; there is no claim of an
 unconditional bound.
 
+### Folding key encodings
+
+The nonce and the resource are map keys, so two encodings of one value would be two
+keys for one payment: the string-encoding cousin of signature malleability. The
+guard folds both to a canonical form before keying (`createGuard`, see
+`src/canonical.ts`). The nonce is lowercased and a leading `0x` dropped, so `0xABCD`,
+`0xabcd`, and `abcd` collide; folding hex case cannot merge two distinct nonces (the
+same bytes either way). The resource, when a URL, is reduced to its WHATWG canonical
+form (scheme and host case-folded, default port dropped) with the case-sensitive
+path, query, and fragment intact, so distinct resources are never merged. A
+case-sensitive composed nonce scope can opt out with `GuardOptions.canonicalizeNonce`.
+
 ## Cross-resource substitution
 
 Source: [arXiv:2605.30998](https://arxiv.org/abs/2605.30998), Context Binding (I3);
@@ -154,8 +166,9 @@ denies the same nonce at a different resource with a distinct
 `nonce-resource-mismatch` (not the generic `nonce-already-reserved`). Because the
 binding happens at reserve, before settle, it catches the substitution in the
 window the on-chain nonce is not yet consumed, where the facilitator's post-settle
-nonce check cannot help. The resource is compared as a canonical key, so callers
-must normalize it (trailing slash, query order, case) before passing it in.
+nonce check cannot help. The resource is compared as a canonical key; the guard
+folds URL scheme and host case by default (see "Folding key encodings" above), so
+normalize only trailing slashes and query order yourself.
 
 Honest limits, stated so the mitigation is not oversold:
 - First-seen binding cannot know a payment's *intended* resource (nothing signed
@@ -234,7 +247,7 @@ than the guard's default:
   a bearer credential, so it leaks through `Referer` headers, logs, and browser
   history; the token must be high-entropy to resist enumeration; a cached capability
   cannot be revoked before its TTL; and it depends on the cache not normalizing the
-  token away (the canonical-key hazard, tracked in issue #22).
+  token away (a canonical-key hazard specific to the capability-URL scheme).
 - **Signed URLs with an expiry** (CloudFront or S3 signed URLs): capability URLs plus
   a time bound and a signature, so they expire and cannot be forged. Same bearer
   trade-off, bounded in time.

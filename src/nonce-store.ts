@@ -45,9 +45,9 @@ export type ReserveError = StoreError | GuardError<"store-at-capacity">;
 export interface ReserveParams {
   /**
    * The payment's nonce, unique within its (chain, asset, payer) scope; the x402
-   * exact scheme uses a random 32-byte value, so a bare nonce is safe (a non-random
-   * source must compose the scope in). The guard folds this to a canonical key (see
-   * canonical.ts); a direct store caller must pass an already-canonical nonce.
+   * exact scheme uses a random 32-byte value. The guard folds this to a canonical
+   * key by default (canonical.ts); a case-sensitive composed scope should opt out
+   * via GuardOptions.canonicalizeNonce, and a direct store caller must pre-fold it.
    */
   readonly nonce: string;
   /**
