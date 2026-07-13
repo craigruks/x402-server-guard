@@ -58,9 +58,6 @@
     "check:pkg": "publint --strict && attw --pack . --ignore-rules cjs-resolves-to-esm",
     "prepublishOnly": "npm run build && npm run check:pkg",
     "prepare": "git config core.hooksPath .githooks || true",
-    "changeset": "changeset",
-    "version": "changeset version",
-    "release": "changeset publish",
     "test:coverage": "vitest run --coverage",
     "smoke:dist": "npm run build && node scripts/smoke-dist.mjs",
     "example": "tsx examples/secure-flow.ts",
@@ -69,7 +66,6 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@biomejs/biome": "2.5.3",
-    "@changesets/cli": "2.31.0",
     "@types/node": "26.1.1",
     "@vitest/coverage-v8": "4.1.10",
     "@x402/core": "2.18.0",

@@ -73,6 +73,47 @@ describe("protect", () => {
     expect(retry.granted).toBe(true);
   });
 
+  it("treats a throwing settle as a failed settle: releases, denies, retryable, no delivery", async () => {
+    const guard = createGuard();
+    const deliver = vi.fn(() => "never");
+    const decision = await protect(guard, request("0xa"), {
+      settle: () => Promise.reject(new Error("facilitator timeout")),
+      deliver,
+    });
+    expect(decision.granted).toBe(false);
+    if (!decision.granted) {
+      expect(decision.reason.code).toBe("settle-failed");
+    }
+    expect(deliver).not.toHaveBeenCalled();
+    // A thrown settle must still release the nonce so the same payment can retry.
+    const retry = await protect(guard, request("0xa"), {
+      settle: () => Promise.resolve(true),
+      deliver: () => "retry",
+    });
+    expect(retry.granted).toBe(true);
+  });
+
+  it("treats a throwing confirm as not-final: releases, denies, retryable, no delivery", async () => {
+    const guard = createGuard();
+    const deliver = vi.fn(() => "never");
+    const decision = await protect(guard, request("0xz"), {
+      settle: () => Promise.resolve(true),
+      confirm: () => Promise.reject(new Error("rpc error")),
+      deliver,
+    });
+    expect(decision.granted).toBe(false);
+    if (!decision.granted) {
+      expect(decision.reason.code).toBe("not-final");
+    }
+    expect(deliver).not.toHaveBeenCalled();
+    const retry = await protect(guard, request("0xz"), {
+      settle: () => Promise.resolve(true),
+      confirm: () => Promise.resolve(true),
+      deliver: () => "retry",
+    });
+    expect(retry.granted).toBe(true);
+  });
+
   it("grants only when the finality gate is met", async () => {
     const guard = createGuard();
     const decision = await protect(guard, request("0xok"), {

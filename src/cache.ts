@@ -42,9 +42,10 @@ export function paidResponseCacheDirectives(options: CacheDirectivesOptions = {}
 
 /**
  * Whether a shared (CDN / reverse-proxy) cache may store a response carrying this
- * `Cache-Control`. A correct shared cache uses exactly this predicate: it refuses
- * to store a `no-store` or `private` response. Used by the caching model in the
- * tests, and the same rule a real CDN applies.
+ * `Cache-Control`. A conforming shared cache uses exactly this predicate: it
+ * refuses to store a `no-store` or `private` response. Used by the caching model
+ * in the tests. Note a CDN in a force-cache / "cache everything" mode ignores
+ * `Cache-Control` entirely; this models a cache that honors the header.
  */
 export function isStorableBySharedCache(cacheControl: string | undefined): boolean {
   if (cacheControl === undefined || cacheControl === "") {

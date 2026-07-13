@@ -1,0 +1,12 @@
+# Categorizes the notes that "Generate release notes" produces on a GitHub Release,
+# grouping merged PRs by label.
+changelog:
+  categories:
+    - title: Mitigations and features
+      labels: [enhancement, feature]
+    - title: Fixes
+      labels: [bug, fix]
+    - title: Documentation
+      labels: [documentation, docs]
+    - title: Other changes
+      labels: ["*"]
