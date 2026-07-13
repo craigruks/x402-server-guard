@@ -1,7 +1,7 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import obsidian from "starlight-theme-obsidian";
+import lucode from "lucode-starlight";
 
 // https://astro.build/config
 export default defineConfig({
@@ -11,18 +11,10 @@ export default defineConfig({
     starlight({
       title: "x402-server-guard",
       description: "Server-side hardening for x402 payment endpoints.",
-      plugins: [
-        obsidian({
-          // starlight-theme-obsidian is configured through the
-          // starlight-site-graph schema. The interactive graph and backlinks
-          // panel are noise on a six-page site and pull in a client bundle we
-          // do not need, so both sidebar widgets are removed. The rest of the
-          // Obsidian theme (callouts, styling) stays on.
-          graph: false,
-          backlinks: false,
-          overridePageSidebar: false,
-        }),
-      ],
+      // lucode-starlight: a shadcn/ui-inspired theme. No graph dependency, so it
+      // runs on the current Astro 7 / Starlight line and reads clean and light,
+      // close to the x402 docs.
+      plugins: [lucode()],
       social: [
         {
           icon: "github",
