@@ -82,11 +82,14 @@ export function makePayment(options: PaymentOptions = {}): {
  */
 export function readExactEvmPayload(payload: PaymentPayload): Result<ExactEvmPayload, Error> {
   const body = payload.payload;
+  // biome-ignore lint/plugin: parsing the untyped x402 payload boundary
   const sig = (body as { signature?: unknown }).signature;
+  // biome-ignore lint/plugin: parsing the untyped x402 payload boundary
   const auth = (body as { authorization?: unknown }).authorization;
   if (typeof sig !== "string" || auth === null || typeof auth !== "object") {
     return err(new Error("payload is not a well-formed exact-EVM payment"));
   }
+  // biome-ignore lint/plugin: parsing the untyped x402 payload boundary
   const { from, to, value, validAfter, validBefore, nonce } = auth as Record<string, unknown>;
   if (
     typeof from !== "string" ||

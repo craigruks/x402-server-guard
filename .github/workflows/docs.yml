@@ -7,6 +7,9 @@ on:
     branches: [main]
     paths:
       - "website/**"
+      # The Reference pages are generated from these at build time (see
+      # website/scripts/sync-reference-docs.mjs), so a change here must redeploy.
+      - "docs/**"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 

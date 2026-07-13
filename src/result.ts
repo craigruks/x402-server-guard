@@ -43,6 +43,7 @@ export function err<E>(error: E): Result<never, E> {
   return { ok: false, error };
 }
 
+// biome-ignore lint/plugin: a caught value is typed unknown by the language
 function toError(caught: unknown): Error {
   return caught instanceof Error ? caught : new Error(String(caught));
 }

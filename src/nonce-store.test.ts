@@ -47,7 +47,7 @@ describe("MemoryNonceStore", () => {
   });
 
   it("refuses an authorization that is already expired", async () => {
-    const store = new MemoryNonceStore(() => 1000);
+    const store = new MemoryNonceStore({ now: () => 1000 });
     expect(await store.reserve(params("0xexp", "/r", 500))).toEqual({
       ok: true,
       value: { status: "expired" },
@@ -58,7 +58,7 @@ describe("MemoryNonceStore", () => {
 
   it("re-reserves a nonce whose authorization has expired", async () => {
     let clock = 1000;
-    const store = new MemoryNonceStore(() => clock);
+    const store = new MemoryNonceStore({ now: () => clock });
     await store.reserve(params("0xexp", "/r", 1010));
     clock = 1020;
     expect(await store.reserve(params("0xexp", "/r", 1030))).toEqual({
@@ -68,7 +68,7 @@ describe("MemoryNonceStore", () => {
   });
 
   it("rejects a fresh reservation once at capacity, failing closed", async () => {
-    const store = new MemoryNonceStore(() => 1000, 2); // cap of 2
+    const store = new MemoryNonceStore({ now: () => 1000, maxEntries: 2 }); // cap of 2
     expect((await store.reserve(params("0xa", "/r", 5000))).ok).toBe(true);
     expect((await store.reserve(params("0xb", "/r", 5000))).ok).toBe(true);
 
@@ -88,7 +88,7 @@ describe("MemoryNonceStore", () => {
 
   it("sweeps expired reservations but keeps still-valid ones", async () => {
     let clock = 1000;
-    const store = new MemoryNonceStore(() => clock);
+    const store = new MemoryNonceStore({ now: () => clock });
     for (let i = 0; i < 50; i += 1) {
       await store.reserve(params(`0x${i}`, "/r", 1010)); // expire at 1010
     }
