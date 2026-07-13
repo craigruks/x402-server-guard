@@ -4,3 +4,8 @@ coverage/
 *.tsbuildinfo
 *.log
 .DS_Store
+
+# Local env files: never commit real keys. Templates (.env.example) stay tracked.
+.env
+.env.*
+!.env.example
