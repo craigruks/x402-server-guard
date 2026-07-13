@@ -11,6 +11,9 @@ responsibility to secure your own payment path.
 **The authors accept no liability for any loss of funds or damages** arising from
 the use of this software. See the [LICENSE](./LICENSE) (MIT) for the full terms.
 
+How this code is reviewed before merge, and the limits of that review, are described
+in [docs/review.md](./docs/review.md).
+
 ## Scope
 
 This library targets server-side ("resource server" / merchant) hardening for the
