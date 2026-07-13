@@ -1,0 +1,67 @@
+---
+title: x402-server-guard
+description: Server-side hardening for x402 payment endpoints.
+---
+
+import { CardGrid, LinkCard, LinkButton } from "@astrojs/starlight/components";
+
+Wrap your x402 payment endpoint to close the settlement race, replay,
+cross-resource substitution, grant-before-finality, and cache-leakage holes.
+Vulnerable code first, fixed code second, on every page.
+
+<LinkButton href="/x402-server-guard/getting-started/understanding-x402/">Read the guide</LinkButton>
+<LinkButton href="https://github.com/craigruks/x402-server-guard" variant="secondary" icon="external">GitHub</LinkButton>
+
+This is the teaching companion to the library. It explains, without assuming you
+know crypto, what each attack is, how it lets someone cheat a paid endpoint, and
+how the guard stops it. The authoritative, code-exact facts live in the repository:
+[coverage map](/x402-server-guard/reference/coverage-map/)
+ties each attack to the test that proves it, and
+[hardening](/x402-server-guard/reference/hardening/)
+explains the mechanisms in depth. These guides are the friendly narrative; when in
+doubt, the repo is the source of truth.
+
+New to x402? Start with
+[Understanding x402](/x402-server-guard/getting-started/understanding-x402/), a
+short attack-relevant primer (the `402` flow, the signed payment, the `nonce`, and
+the `verify` vs `settle` gap). Everything else assumes it.
+
+## The attacks and the fixes
+
+<CardGrid>
+  <LinkCard
+    title="Race & replay"
+    href="/x402-server-guard/mitigations/race-and-replay/"
+    description="Fire the same payment many times at once and get many resources for one payment. Fix: reserve the nonce before delivering."
+  />
+  <LinkCard
+    title="Cross-resource substitution"
+    href="/x402-server-guard/mitigations/substitution/"
+    description="Spend a payment meant for resource A at resource B. Fix: bind the nonce to the served resource."
+  />
+  <LinkCard
+    title="Grant-before-finality"
+    href="/x402-server-guard/mitigations/finality/"
+    description="Get the resource, then have the payment reversed by a chain reorg. Fix: hold to k confirmations, release on failure."
+  />
+  <LinkCard
+    title="Cache leakage"
+    href="/x402-server-guard/mitigations/cache-leakage/"
+    description="A shared cache serves the paid response to unpaid clients. Fix: no-store, private on paid responses."
+  />
+</CardGrid>
+
+## The research
+
+The attacks come from two papers. Each page cites the specific attack or invariant
+it addresses.
+
+- Zelin Li, Qin Wang, Zhipeng Wang. "Five Attacks on x402 Agentic Payment
+  Protocol." https://arxiv.org/abs/2605.11781
+- Shengchen Ling et al. "Free-Riding the Agentic Web: A Systematic Security Analysis
+  of x402 Payments." https://arxiv.org/abs/2605.30998
+
+## One honest disclaimer
+
+This library is not audited and is not a security guarantee. It mitigates these
+specific attack classes. It cannot make an insecure endpoint safe on its own.
