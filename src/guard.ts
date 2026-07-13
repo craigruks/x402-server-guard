@@ -104,6 +104,15 @@ export function createGuard(options: GuardOptions = {}): Guard {
             reserved: false,
             reason: guardError("nonce-expired", "payment authorization has expired"),
           };
+        default:
+          // The status union is exhaustive, so this is unreachable for a conformant
+          // store. A misbehaving adapter returning an off-contract status must still
+          // fail closed here, not fall through to an undefined return that would
+          // throw out of the guard and break the "a decision is a value" invariant.
+          return {
+            reserved: false,
+            reason: guardError("store-unavailable", "nonce store returned an unknown status"),
+          };
       }
     },
   };

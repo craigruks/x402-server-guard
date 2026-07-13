@@ -151,4 +151,20 @@ describe("createGuard reserve", () => {
       expect(decision.reason.cause).toBe(boom);
     }
   });
+
+  it("fails closed on an off-contract store status instead of returning undefined", async () => {
+    // A misbehaving adapter returns a status outside the ReserveOutcome contract.
+    // The guard must deny (a value), not fall through to an undefined return that
+    // would throw out of the request path.
+    const misbehaving = {
+      reserve: () => Promise.resolve(ok({ status: "teleported" as const })),
+      release: () => Promise.resolve(ok({ status: "released" as const })),
+    } as unknown as NonceStore;
+    const guard = createGuard({ store: misbehaving });
+    const decision = await guard.reserve(params("0xweird"));
+    expect(decision.reserved).toBe(false);
+    if (!decision.reserved) {
+      expect(decision.reason.code).toBe("store-unavailable");
+    }
+  });
 });

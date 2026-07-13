@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createGuard } from "./guard.js";
-import { protect } from "./protect.js";
+import { type ProtectHandlers, protect } from "./protect.js";
 
 const request = (nonce: string, resource = "/report") => ({
   nonce,
@@ -161,5 +161,23 @@ describe("protect", () => {
       deliver: () => "retry",
     });
     expect(retry.granted).toBe(true);
+  });
+
+  it("fails closed when finality is missing (a non-TypeScript caller), not a zero-conf grant", async () => {
+    const guard = createGuard();
+    const deliver = vi.fn(() => "leak");
+    // A JS caller (or a cast/any-typed one) that supplies settle and deliver but
+    // omits `finality`. The type union forbids this, but the runtime must not grant
+    // at zero confirmations: only an explicit "facilitator" grants on settle.
+    const handlers = {
+      settle: () => Promise.resolve(true),
+      deliver,
+    } as unknown as ProtectHandlers<string>;
+    const decision = await protect(guard, request("0xjs"), handlers);
+    expect(decision.granted).toBe(false);
+    if (!decision.granted) {
+      expect(decision.reason.code).toBe("not-final");
+    }
+    expect(deliver).not.toHaveBeenCalled();
   });
 });

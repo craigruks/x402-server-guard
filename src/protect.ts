@@ -10,11 +10,11 @@
  *
  * and closes all four attack classes at once: the atomic reservation stops the
  * duplicate-settlement race and payment replay; the resource on the reservation
- * stops cross-resource substitution; settling before delivering plus the optional
- * `confirm` gate stops grant-before-finality; and a granted response carries the
- * `Cache-Control` that keeps a shared cache from leaking it. A settlement that
- * fails, or a finality gate that is not met, releases the reservation so the payer
- * can retry the same authorization.
+ * stops cross-resource substitution; settling before delivering plus the
+ * `finality: "confirm"` gate stops grant-before-finality; and a granted response
+ * carries the `Cache-Control` that keeps a shared cache from leaking it. A
+ * settlement that fails, or a finality gate that is not met, releases the
+ * reservation so the payer can retry the same authorization.
  *
  * On a grant, the caller MUST apply the returned `cacheControl` to the response
  * headers; the cache-leak mitigation is that header, and `protect` cannot set it
@@ -91,7 +91,12 @@ export async function protect<TResource>(
     return { granted: false, reason: guardError("settle-failed", "payment did not settle") };
   }
 
-  if (handlers.finality === "confirm") {
+  // Fail closed on the finality axis: only the explicit "facilitator" posture
+  // grants at settle success. Any other value (including a missing or misspelled
+  // `finality` from a non-TypeScript caller) must clear the confirm gate. If no
+  // `confirm` was supplied, calling it throws and `tryCatchAsync` turns that into a
+  // not-final deny rather than an unintended zero-confirmation grant.
+  if (handlers.finality !== "facilitator") {
     // A confirm that rejects is treated as not-yet-final for the same reason:
     // withhold the grant and free the nonce rather than leak a delivery.
     const final = await tryCatchAsync(() => handlers.confirm());

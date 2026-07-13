@@ -39,8 +39,8 @@ export type ReleaseOutcome = { readonly status: "released" } | { readonly status
 /** The only error a `release` reports, and what the guard collapses any unrecognized store failure to (fail closed). */
 export type StoreError = GuardError<"store-unavailable">;
 
-/** What a `reserve` can report as a value: the store is down, or at its hard `maxEntries` capacity. Branch on `code`. */
-export type ReserveError = GuardError<"store-unavailable" | "store-at-capacity">;
+/** What a `reserve` can report: a `StoreError`, or the store being at its hard `maxEntries` capacity. Branch on `code`. */
+export type ReserveError = StoreError | GuardError<"store-at-capacity">;
 
 export interface ReserveParams {
   /**

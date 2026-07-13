@@ -73,7 +73,7 @@ across serverless isolates needs a genuine atomic compare-and-set; see
 
 ### One call: `protect`
 
-`protect` runs the whole secure flow (`reserve → settle → confirm → deliver`) and
+`protect` runs the whole secure flow (`reserve → settle → (confirm) → deliver`) and
 returns the cache directives on grant, releasing the reservation if the settle
 fails or finality is not reached. It has no runtime dependencies and takes plain
 callbacks, so it drops into any framework:
@@ -89,6 +89,9 @@ const decision = await protect(
     // settle resolves true only when the payment actually settled.
     settle: async () => (await facilitator.settle(payload, requirements)).success,
     deliver: () => resource,
+    // Grant on settle success (finality rests with the facilitator and the chain).
+    // Use `finality: "confirm"` with a `confirm()` callback to hold for k confirmations.
+    finality: "facilitator",
   },
 );
 if (!decision.granted) return deny(decision.reason.code);

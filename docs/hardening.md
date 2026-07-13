@@ -254,9 +254,9 @@ moves to that URL, where unguessability (and an expiry) replaces `no-store`.
 ## Wiring it together: `protect`
 
 The four mitigations compose in one framework-agnostic call, `protect`, which runs
-the safe order `reserve -> settle -> confirm -> deliver` and returns the cache
-directives on grant, releasing the reservation if the settle fails or finality is
-not reached. It has no runtime dependencies and takes plain callbacks, so a Hono,
+the safe order `reserve -> settle -> (confirm) -> deliver` (the confirm step runs
+only under `finality: "confirm"`) and returns the cache directives on grant,
+releasing the reservation if the settle fails or finality is not reached. It has no runtime dependencies and takes plain callbacks, so a Hono,
 Express, or `@x402/core`-hook binding is a thin wrapper over it. The binding lives
 at the HTTP layer because the served resource (the request URL) is only available
 there, and binding the nonce to the served route, not the unsigned resource the
