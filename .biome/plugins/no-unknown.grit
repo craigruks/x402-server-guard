@@ -1,0 +1,12 @@
+language js
+
+// Ban the `unknown` type. It erases the type surface, so each use must be
+// justified. Where it is genuinely required (a caught error, a wrapped cause, an
+// untyped protocol boundary, a test that simulates an off-contract input),
+// suppress with a one-line `// biome-ignore lint/plugin: <reason>` above the use.
+TsUnknownType() as $t where {
+  register_diagnostic(
+    span = $t,
+    message = "Avoid `unknown`. Use a precise type, or add `// biome-ignore lint/plugin: <why>` if it is genuinely required (caught error, wrapped cause, untyped boundary, off-contract test double)."
+  )
+}

@@ -64,10 +64,9 @@ export function createGuard(options: GuardOptions = {}): Guard {
     async reserve(params: ReserveParams): Promise<Reservation> {
       const result = await callStore(() => store.reserve(params));
       if (!result.ok) {
-        // callStore already reduced a thrown/rejected store to `store-unavailable`.
-        // Surface the recognized store codes as-is (`store-at-capacity` so a caller
-        // can tell backpressure from an outage, `store-unavailable` with its cause
-        // intact); collapse anything unrecognized to a fail-closed store-unavailable.
+        // Surface the known store codes as-is (callStore already mapped throws to
+        // store-unavailable). Defensive: collapse an unrecognized code from a
+        // misbehaving adapter to store-unavailable, so it still fails closed.
         const error = result.error;
         const reason =
           error.code === "store-at-capacity" || error.code === "store-unavailable"
@@ -105,10 +104,8 @@ export function createGuard(options: GuardOptions = {}): Guard {
             reason: guardError("nonce-expired", "payment authorization has expired"),
           };
         default:
-          // The status union is exhaustive, so this is unreachable for a conformant
-          // store. A misbehaving adapter returning an off-contract status must still
-          // fail closed here, not fall through to an undefined return that would
-          // throw out of the guard and break the "a decision is a value" invariant.
+          // Defensive: a misbehaving adapter returning an off-contract status fails
+          // closed here rather than falling through to an undefined return (a throw).
           return {
             reserved: false,
             reason: guardError("store-unavailable", "nonce store returned an unknown status"),

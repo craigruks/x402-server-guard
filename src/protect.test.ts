@@ -166,14 +166,12 @@ describe("protect", () => {
   it("fails closed when finality is missing (a non-TypeScript caller), not a zero-conf grant", async () => {
     const guard = createGuard();
     const deliver = vi.fn(() => "leak");
-    // A JS caller (or a cast/any-typed one) that supplies settle and deliver but
-    // omits `finality`. The off-contract thing here is a MISSING required field, not
-    // a wrong value, so there is nothing narrower to cast than the whole object. The
-    // runtime must not grant at zero confirmations: only an explicit "facilitator"
-    // grants on settle.
+    // A JS caller that omits the required finality field (the type forbids it). A
+    // missing field, not a wrong value, so the whole object is the smallest cast.
     const handlers = {
       settle: () => Promise.resolve(true),
       deliver,
+      // biome-ignore lint/plugin: off-contract test double, a caller omitting finality
     } as unknown as ProtectHandlers<string>;
     const decision = await protect(guard, request("0xjs"), handlers);
     expect(decision.granted).toBe(false);

@@ -23,6 +23,7 @@ export interface GuardError<Code extends string = string> {
   /** Human-readable detail, for logs and messages, not for control flow. */
   readonly message: string;
   /** The originating error, when this wraps a throw. Preserves the chain. */
+  // biome-ignore lint/plugin: a wrapped cause can be any thrown value
   readonly cause?: unknown;
 }
 
@@ -30,6 +31,7 @@ export interface GuardError<Code extends string = string> {
 export function guardError<const Code extends string>(
   code: Code,
   message: string,
+  // biome-ignore lint/plugin: a wrapped cause can be any thrown value
   cause?: unknown,
 ): GuardError<Code> {
   return cause === undefined ? { code, message } : { code, message, cause };

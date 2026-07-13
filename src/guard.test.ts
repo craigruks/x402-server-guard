@@ -108,10 +108,8 @@ describe("createGuard reserve", () => {
   });
 
   it("collapses an unrecognized store error to store-unavailable (fail closed)", async () => {
-    // A store returning an off-contract code must still fail closed. `ReserveError`
-    // forbids the code at compile time, so cast only that value past the type (a
-    // misbehaving adapter could still emit it at runtime); the store shape stays
-    // honest. The guard must collapse anything it does not recognize.
+    // A store returning an off-contract code must still fail closed.
+    // biome-ignore lint/plugin: off-contract code cast past ReserveError, guard must collapse it
     const original = guardError("store-down", "boom") as unknown as ReserveError;
     const failing: NonceStore = {
       reserve: () => Promise.resolve(err(original)),
@@ -159,11 +157,9 @@ describe("createGuard reserve", () => {
   });
 
   it("fails closed on an off-contract store status instead of returning undefined", async () => {
-    // A misbehaving adapter returns a status outside the ReserveOutcome contract.
-    // `ReserveOutcome` forbids it at compile time, so cast only that value past the
-    // type; the store shape stays honest. The guard must deny (a value), not fall
-    // through to an undefined return that would throw out of the request path.
+    // A misbehaving adapter returns an off-contract status; the guard must deny, not throw.
     const misbehaving: NonceStore = {
+      // biome-ignore lint/plugin: off-contract status cast past ReserveOutcome, switch default must fail closed
       reserve: () => Promise.resolve(ok({ status: "teleported" } as unknown as ReserveOutcome)),
       release: () => Promise.resolve(ok({ status: "released" as const })),
     };
