@@ -10,6 +10,7 @@
  */
 import type { FacilitatorClient } from "@x402/core/server";
 import type { PaymentPayload, PaymentRequirements } from "@x402/core/types";
+import { paidResponseCacheDirectives } from "../../src/cache.js";
 import type { Guard } from "../../src/guard.js";
 import { readExactEvmPayload } from "./payment.js";
 import type { GrantResult } from "./types.js";
@@ -61,6 +62,8 @@ export class GuardedResourceServer<TResource> {
       granted: true,
       resource: this.deliver(requirements),
       settlement: { ok: true, txHash: settlement.transaction },
+      // Mark the paid response uncacheable so a shared cache cannot serve it onward.
+      cacheControl: paidResponseCacheDirectives().cacheControl,
     };
   }
 }

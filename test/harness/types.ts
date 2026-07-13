@@ -43,4 +43,6 @@ export interface GrantResult<TResource> {
   settlement?: SettlementResult;
   /** The guard's deny reason, present iff a reservation was refused. */
   denial?: GuardErrorCode;
+  /** The `Cache-Control` the server set on a paid response, if any. */
+  cacheControl?: string;
 }

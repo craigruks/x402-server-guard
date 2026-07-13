@@ -187,6 +187,69 @@ force; elsewhere the risk is higher. The mitigation is the discipline of holding
 until finality plus the release-on-failure retry path, not a claim that reorgs are
 impossible.
 
+## Cache leakage of paid content
+
+Source: [arXiv:2605.30998](https://arxiv.org/abs/2605.30998) (§ cache).
+
+A shared cache (CDN or reverse proxy) in front of the resource server keys on the
+request URL and knows nothing about payment. If a paid 200 is cacheable, the cache
+stores it and serves it to the next caller for that URL, paid or not: the content
+leaks for free. The reference x402 adapters set no cache directive on the paid
+response (surveyed above: no `Cache-Control`, no `Vary`), so a shared cache is free
+to store it.
+
+Unlike the other three, this is not a decision about a nonce; it is a response
+directive. `paidResponseCacheDirectives()` returns `Cache-Control: no-store,
+private` and a `Vary` on the payment header, which the server or adapter attaches
+to every paid response. `no-store` is load-bearing: any HTTP-conformant cache
+refuses to store it. `private` and `Vary` are defense in depth for a cache that
+stores anyway. The framework binding applies these headers; the `protect` helper
+returns them on a granted decision so the caller does not have to remember to.
+
+### Why `no-store`, and not one of the alternatives
+
+Cache leakage has several mitigations. The guard ships the one that is correct with
+no configuration and no infrastructure, and that fails safe if the merchant does
+nothing else. The alternatives, and why each is the merchant's choice to add rather
+than the guard's default:
+
+- **Capability URLs.** Serve the content at an unguessable path (`/download/{token}`,
+  as S3 presigned URLs and "anyone with the link" document shares do). The response
+  is cacheable, even publicly, because the cache keys on the token and only ever
+  serves a holder of it. This is the right call for large, static, identical-for-every
+  -payer content behind a CDN. The cost is a different security model: the URL becomes
+  a bearer credential, so it leaks through `Referer` headers, logs, and browser
+  history; the token must be high-entropy to resist enumeration; a cached capability
+  cannot be revoked before its TTL; and it depends on the cache not normalizing the
+  token away (the canonical-key hazard, tracked in issue #22).
+- **Signed URLs with an expiry** (CloudFront or S3 signed URLs): capability URLs plus
+  a time bound and a signature, so they expire and cannot be forged. Same bearer
+  trade-off, bounded in time.
+- **Per-user cache partitioning** (`Vary` on an auth token, or a per-user cache key):
+  cache, but never across users. For personalized paid content.
+- **Encrypt and cache**: cache the ciphertext freely and hand the decryption key to
+  the payer. The key is the gate.
+
+We default to `no-store, private` because it is correct for the common case (content
+served directly at a stable, per-request-verified URL) with zero merchant effort, and
+a merchant who does nothing else still does not leak. The alternatives are layers a
+merchant adds deliberately, and they compose with the guard rather than replacing it:
+run the payment through the guard at the paid route and keep that response `no-store`,
+then hand back a cacheable capability or signed URL for delivery. The cache concern
+moves to that URL, where unguessability (and an expiry) replaces `no-store`.
+
+## Wiring it together: `protect`
+
+The four mitigations compose in one framework-agnostic call, `protect`, which runs
+the safe order `reserve -> settle -> confirm -> deliver` and returns the cache
+directives on grant, releasing the reservation if the settle fails or finality is
+not reached. It has no runtime dependencies and takes plain callbacks, so a Hono,
+Express, or `@x402/core`-hook binding is a thin wrapper over it. The binding lives
+at the HTTP layer because the served resource (the request URL) is only available
+there, and binding the nonce to the served route, not the unsigned resource the
+payer claims, is what makes the substitution mitigation sound. See
+`examples/hono-server.ts`.
+
 ## What is deliberately not adopted
 
 - permit2's nonce bitmap packs many nonces into one storage word because its

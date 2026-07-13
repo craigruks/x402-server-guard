@@ -15,6 +15,12 @@
 /** Current package version (semver). */
 export const VERSION: string = "0.1.0";
 
+export {
+  type CacheDirectives,
+  type CacheDirectivesOptions,
+  isStorableBySharedCache,
+  paidResponseCacheDirectives,
+} from "./cache.js";
 export { type GuardError, guardError } from "./error.js";
 export {
   createGuard,
@@ -30,4 +36,10 @@ export {
   type ReserveOutcome,
   type ReserveParams,
 } from "./nonce-store.js";
+export {
+  type ProtectDecision,
+  type ProtectDenyReason,
+  type ProtectHandlers,
+  protect,
+} from "./protect.js";
 export { err, ok, type Result, tryCatch, tryCatchAsync } from "./result.js";
