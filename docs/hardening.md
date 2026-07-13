@@ -43,14 +43,14 @@ surveyed at `main` commit `dd927a2`:
   A signature valid for route A is valid for route B at the same price and payTo.
 - No adapter sets `Cache-Control` or `Vary` on the 402 or the paid 200.
 
-## Race and replay: atomic nonce reservation
+## Race and replay
 
 The guard reserves a payment's nonce before granting. The first request for a
 nonce wins; a replay or a concurrent race is denied. This closes the race by
 making the check and the reservation a single atomic step, so there is no window
 between "is this nonce free?" and "take it".
 
-### The nonce is the replay primitive, and we key on it
+### Why we key on the nonce
 
 Replay protection keys on the EIP-3009 nonce, never on the signature bytes.
 Established off-chain-signature systems do the same, because the nonce is the
@@ -81,7 +81,7 @@ nonce. And a distinct nonce is a distinct authorization that settles its own
 on-chain transfer: paying again with a fresh nonce is paying twice, not a
 double-spend, and is correctly out of scope.
 
-### A distributed store must have a genuine compare-and-set
+### Distributed stores need compare-and-set
 
 The in-memory store is atomic because a synchronous JavaScript body runs to
 completion. A store shared across serverless isolates must use a native atomic
@@ -96,12 +96,12 @@ constraint that encodes the expiry, not bare `SET NX`; treating the expiry as a
 separate predicate before the CAS is acceptable, since it only races `now`
 crossing a fixed `validBefore` and the on-chain check is the backstop.
 
-## Hardening applied to the reservation
+## Hardening the reservation
 
 Two items from cross-referencing the guard against permit2, CoW, MetaMask
 `eth-sig-util`, and Hyperliquid's signing SDK.
 
-### The closing edge of the window is enforced in the reserve step
+### Enforcing the closing edge
 
 `reserve` refuses an authorization whose window has already closed (`expiresAt <=
 now`) and returns an `expired` outcome, which the guard maps to a fail-closed
@@ -198,7 +198,7 @@ force; elsewhere the risk is higher. The mitigation is the discipline of holding
 until finality plus the release-on-failure retry path, not a claim that reorgs are
 impossible.
 
-## Cache leakage of paid content
+## Cache leakage
 
 Source: [arXiv:2605.11781](https://arxiv.org/abs/2605.11781), Attack III (HTTP /
 proxy-level handling: a paid response cached by an intermediary and served to
@@ -219,7 +219,7 @@ refuses to store it. `private` and `Vary` are defense in depth for a cache that
 stores anyway. The framework binding applies these headers; the `protect` helper
 returns them on a granted decision so the caller does not have to remember to.
 
-### Why `no-store`, and not one of the alternatives
+### Why `no-store`, not the alternatives
 
 Cache leakage has several mitigations. The guard ships the one that is correct with
 no configuration and no infrastructure, and that fails safe if the merchant does
@@ -263,7 +263,7 @@ there, and binding the nonce to the served route, not the unsigned resource the
 payer claims, is what makes the substitution mitigation sound. See
 `examples/hono-server.ts`.
 
-## What is deliberately not adopted
+## Deliberately not adopted
 
 - permit2's nonce bitmap packs many nonces into one storage word because its
   nonce is a structured `uint256`. The EIP-3009 nonce is 32 random bytes, so the

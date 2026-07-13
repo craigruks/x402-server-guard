@@ -1,0 +1,21 @@
+{
+  "name": "x402-server-guard-website",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "sync:reference": "node scripts/sync-reference-docs.mjs",
+    "predev": "npm run sync:reference",
+    "dev": "astro dev",
+    "prebuild": "npm run sync:reference",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.41.3",
+    "astro": "^7.0.7",
+    "lucode-starlight": "^0.1.6",
+    "sharp": "^0.34.2"
+  }
+}

@@ -3,6 +3,8 @@
 **Server-side hardening middleware for [x402](https://github.com/coinbase/x402)
 payment endpoints.**
 
+Documentation: https://craigruks.github.io/x402-server-guard/
+
 x402 lets a server charge for a resource by returning `402 Payment Required` and
 verifying a signed payment. Published research has shown that a naïve resource
 server is exploitable in several ways: a payment can be replayed, reused against
