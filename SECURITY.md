@@ -15,7 +15,9 @@ the use of this software. See the [LICENSE](./LICENSE) (MIT) for the full terms.
 
 This library targets server-side ("resource server" / merchant) hardening for the
 x402 protocol. It mitigates five listed line items across four distinct attack
-classes, drawn from published research (arXiv:2605.11781, arXiv:2605.30998):
+classes, drawn from published research
+([arXiv:2605.11781](https://arxiv.org/abs/2605.11781),
+[arXiv:2605.30998](https://arxiv.org/abs/2605.30998)):
 the duplicate-settlement race, payment replay, cross-resource substitution,
 grant-before-finality, and cache leakage of paid content. Each is mapped to its
 mechanism and the test that proves it in
