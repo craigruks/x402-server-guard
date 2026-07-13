@@ -171,3 +171,42 @@ describe("createGuard reserve", () => {
     }
   });
 });
+
+describe("createGuard canonicalization", () => {
+  const at = (nonce: string, resource: string) => ({ nonce, resource, expiresAt: 2_000_000_000 });
+
+  it("folds two encodings of one nonce to a single grant by default", async () => {
+    const guard = createGuard();
+    const first = await guard.reserve(at("0xABCD", "/r"));
+    const second = await guard.reserve(at("0xabcd", "/r")); // same nonce, different casing
+    expect(first.reserved).toBe(true);
+    expect(second.reserved).toBe(false);
+    if (!second.reserved) {
+      expect(second.reason.code).toBe("nonce-already-reserved");
+    }
+  });
+
+  it("also folds the 0x prefix (0xabcd and abcd are one nonce)", async () => {
+    const guard = createGuard();
+    expect((await guard.reserve(at("0xabcd", "/r"))).reserved).toBe(true);
+    expect((await guard.reserve(at("abcd", "/r"))).reserved).toBe(false);
+  });
+
+  it("keys on the exact bytes when canonicalization is opted out", async () => {
+    const guard = createGuard({ canonicalizeNonce: (n) => n });
+    expect((await guard.reserve(at("0xABCD", "/r"))).reserved).toBe(true);
+    // A different string is a different key: both reserve (the pre-hardening behavior).
+    expect((await guard.reserve(at("0xabcd", "/r"))).reserved).toBe(true);
+  });
+
+  it("does not read a resource host-case difference as substitution", async () => {
+    const guard = createGuard();
+    await guard.reserve(at("0xa", "https://API.example.com/r"));
+    const again = await guard.reserve(at("0xa", "https://api.example.com/r"));
+    expect(again.reserved).toBe(false);
+    if (!again.reserved) {
+      // Same resource, different host casing: a replay, not a substitution.
+      expect(again.reason.code).toBe("nonce-already-reserved");
+    }
+  });
+});

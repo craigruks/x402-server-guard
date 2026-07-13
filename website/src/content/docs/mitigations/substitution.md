@@ -72,10 +72,11 @@ if (!reservation.reserved) {
 
 ## The canonical-key obligation
 
-The resource is compared as a plain string, so two spellings of the same resource
-must produce the same string: one resource, one key. Bind to the **served** route,
-not the resource the client claims in the payload. Only the merchant knows which
-parts of the URL matter for pricing, so canonicalizing the key is the caller's job:
+The resource is compared as a canonical key, so two spellings of the same resource
+must produce the same string: one resource, one key. The guard folds the parts that
+are never semantic for you (a URL's scheme and host casing, and the default port);
+the parts below stay your job, because only the merchant knows which of them matter
+for pricing. Bind to the **served** route, not the resource the client claims:
 
 - **Query string.** If the query distinguishes two separately-priced resources
   (`/api?file=a` vs `/api?file=b`), fold the relevant query into the key, or a nonce
@@ -88,9 +89,11 @@ parts of the URL matter for pricing, so canonicalizing the key is the caller's j
   handler on the same final URL, and a 301/302 carries no paid body. The only risk is
   a false *deny* if a normalizer rewrites the path between reserve and deliver, so run
   the key function on the actually-served request and keep it stable.
-- **Trailing slash and case.** Normalize `/api` vs `/api/` and case before use.
+- **Trailing slash.** Normalize `/api` vs `/api/` before use (the guard folds URL
+  scheme and host case, but not the path).
 
-Tracked in issue #22.
+The guard applies this key folding by default; a case- or prefix-sensitive scope can
+opt out with `GuardOptions.canonicalizeResource` / `canonicalizeNonce`.
 
 ## What proves it
 

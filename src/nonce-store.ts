@@ -1,32 +1,23 @@
 /**
  * A store of reserved payment nonces.
  *
- * `reserve` is the guard's load-bearing primitive: the first caller to reserve a
- * nonce wins; every later caller (a replay or a concurrent race) is told it is
- * already taken. It MUST be atomic, the check and the set never split by an
- * `await`. The in-memory store below is atomic by construction (a synchronous JS
- * body runs to completion). A distributed store must use a genuine atomic
- * compare-and-set (a Durable Object, Redis `SET .. NX`, a unique constraint);
- * get-then-put stores (Workers KV, S3) reopen the race and are a later chapter.
+ * `reserve` is the load-bearing primitive and MUST be atomic: the check and the set
+ * are never split by an `await`. The in-memory store below is atomic by construction
+ * (a synchronous body runs to completion); a distributed store must use a genuine
+ * atomic compare-and-set (a Durable Object, Redis `SET .. NX`, a unique constraint).
+ * Get-then-put stores (Workers KV, S3) reopen the race and are a later chapter.
  *
- * `reserve` and `release` return a `Result`, so a store failure is a value the
- * guard turns into a fail-closed deny. A reserved nonce is bound to its first
- * resource (to reject a rebind), carries the authorization's expiry (evicted once
- * it can no longer be replayed on-chain), and holds a fencing `token` only its
- * holder can `release` with. `reserve` also refuses an already-expired
- * authorization (`expiresAt <= now`), enforcing the closing edge of the window;
- * the facilitator verifies the window too. Replay keys on the nonce, never the
- * signature, which is what makes it immune to signature malleability. The adapter
- * boundaries and the full rationale are in `docs/hardening.md`.
+ * `reserve` and `release` return a `Result`, so a store failure is a value the guard
+ * turns into a fail-closed deny. Replay keys on the nonce, never the signature, which
+ * is what makes it immune to signature malleability. Full rationale: docs/hardening.md.
  */
 import { randomUUID } from "node:crypto";
 import { type GuardError, guardError } from "./error.js";
 import { err, ok, type Result } from "./result.js";
 
 /**
- * The outcome of a reserve. `reserved` carries a fencing `token`: only the holder
- * of that token can later `release` the reservation, so releasing an in-flight
- * hold is not a griefing primitive an attacker can trigger for another payer.
+ * The outcome of a reserve. `reserved` carries a fencing `token`: only its holder can
+ * later `release`, so releasing an in-flight hold is not a griefing primitive.
  */
 export type ReserveOutcome =
   | { readonly status: "reserved"; readonly token: string }
@@ -44,23 +35,21 @@ export type ReserveError = StoreError | GuardError<"store-at-capacity">;
 
 export interface ReserveParams {
   /**
-   * The payment's nonce. Must be unique within its (chain, asset, payer) scope;
-   * for the x402 exact scheme it is a random 32-byte value, so a bare nonce is
-   * safe. A caller using a non-random nonce source must compose that scope in.
+   * The payment's nonce, unique within its (chain, asset, payer) scope; the x402 exact
+   * scheme uses a random 32-byte value. The guard folds this to a canonical key by
+   * default (canonical.ts); a direct store caller must pre-fold it.
    */
   readonly nonce: string;
   /**
-   * The resource this payment is being spent on, as a canonical key. The
-   * substitution mitigation (a later chapter) compares this to the resource a
-   * nonce was first bound to, so equal resources must produce an equal string:
-   * normalize trailing slashes, query order, and case before passing it in.
+   * The resource this payment is spent on, as a canonical key. Substitution compares
+   * this to the resource the nonce first bound to, so equal resources must produce an
+   * equal string. The guard canonicalizes URL casing by default.
    */
   readonly resource: string;
   /**
-   * Unix seconds, the authorization's `validBefore`. Used two ways: `reserve`
-   * refuses an authorization whose window has already closed (`expiresAt <= now`),
-   * and once past this time a live reservation may be evicted (the nonce is
-   * unreplayable on-chain, so dropping it is lossless).
+   * Unix seconds, the authorization's `validBefore`. Used two ways: `reserve` refuses
+   * an authorization whose window has closed (`expiresAt <= now`), and past this time a
+   * live reservation may be evicted (unreplayable on-chain, so dropping it is lossless).
    */
   readonly expiresAt: number;
 }
@@ -69,10 +58,9 @@ export interface ReserveParams {
 export interface NonceStore {
   reserve(params: ReserveParams): Promise<Result<ReserveOutcome, ReserveError>>;
   /**
-   * Release a reservation so the nonce can be reserved again. Used to free a hold
-   * when a settlement fails or is reorged before finality, so a legitimate payer
-   * can retry the same authorization. Releases only if `token` matches the token
-   * `reserve` returned (fencing); otherwise it frees nothing (`not-held`).
+   * Release a reservation so the nonce can be reserved again (e.g. after a failed or
+   * reorged settlement, so a legitimate payer can retry). Releases only if `token`
+   * matches the one `reserve` returned (fencing); otherwise frees nothing (`not-held`).
    */
   release(nonce: string, token: string): Promise<Result<ReleaseOutcome, StoreError>>;
 }
@@ -107,17 +95,13 @@ const nowSeconds = (): number => Math.floor(Date.now() / 1000);
  * In-memory nonce store for a single process. Atomic because the check and the set
  * share one synchronous tick.
  *
- * Memory is bounded two ways. Expired reservations are swept (lossless: past
- * `validBefore` the nonce is unreplayable on-chain). The sweep alone is NOT a
- * bound, since `expiresAt` is the attacker-signed `validBefore`, so a hard
- * `maxEntries` cap rejects fresh reservations (fail closed) once reached. Peak
- * retention is roughly `min(maxEntries, request_rate * validBefore_horizon)`. Not
- * for serverless isolates; use a shared store with a native compare-and-set there.
- * Assumes a monotonic clock (a backward NTP step could un-expire a swept nonce;
- * the on-chain `validBefore` check is the end-to-end backstop).
- *
- * Exported for observability in tests; production code should use
- * `createMemoryNonceStore`.
+ * Memory is bounded two ways: expired reservations are swept (lossless past
+ * `validBefore`), and because `expiresAt` is the attacker-signed `validBefore` the
+ * sweep alone is no bound, so a hard `maxEntries` cap rejects fresh reservations once
+ * reached (fail closed). Not for serverless isolates; use a shared store with a native
+ * compare-and-set there. Assumes a monotonic clock (the on-chain `validBefore` check is
+ * the end-to-end backstop). Exported for observability in tests; production code should
+ * use `createMemoryNonceStore`.
  */
 export class MemoryNonceStore implements NonceStore {
   private readonly reserved = new Map<string, Entry>();
@@ -153,9 +137,8 @@ export class MemoryNonceStore implements NonceStore {
     if (existing !== undefined && existing.expiresAt > now) {
       return Promise.resolve(ok({ status: "already-reserved", boundResource: existing.resource }));
     }
-    // Reject a fresh reservation once full, rather than growing without bound or
-    // evicting a live entry (which would reopen the race). Overwriting an already
-    // dead entry does not grow the map, so it is exempt from the cap.
+    // Reject a fresh reservation once full rather than grow unbounded or evict a live
+    // entry (which reopens the race). Overwriting a dead entry is exempt (no growth).
     if (existing === undefined && this.reserved.size >= this.maxEntries) {
       return Promise.resolve(err(guardError("store-at-capacity", "nonce store at capacity")));
     }
