@@ -206,6 +206,38 @@ refuses to store it. `private` and `Vary` are defense in depth for a cache that
 stores anyway. The framework binding applies these headers; the `protect` helper
 returns them on a granted decision so the caller does not have to remember to.
 
+### Why `no-store`, and not one of the alternatives
+
+Cache leakage has several mitigations. The guard ships the one that is correct with
+no configuration and no infrastructure, and that fails safe if the merchant does
+nothing else. The alternatives, and why each is the merchant's choice to add rather
+than the guard's default:
+
+- **Capability URLs.** Serve the content at an unguessable path (`/download/{token}`,
+  as S3 presigned URLs and "anyone with the link" document shares do). The response
+  is cacheable, even publicly, because the cache keys on the token and only ever
+  serves a holder of it. This is the right call for large, static, identical-for-every
+  -payer content behind a CDN. The cost is a different security model: the URL becomes
+  a bearer credential, so it leaks through `Referer` headers, logs, and browser
+  history; the token must be high-entropy to resist enumeration; a cached capability
+  cannot be revoked before its TTL; and it depends on the cache not normalizing the
+  token away (the canonical-key hazard, tracked in issue #22).
+- **Signed URLs with an expiry** (CloudFront or S3 signed URLs): capability URLs plus
+  a time bound and a signature, so they expire and cannot be forged. Same bearer
+  trade-off, bounded in time.
+- **Per-user cache partitioning** (`Vary` on an auth token, or a per-user cache key):
+  cache, but never across users. For personalized paid content.
+- **Encrypt and cache**: cache the ciphertext freely and hand the decryption key to
+  the payer. The key is the gate.
+
+We default to `no-store, private` because it is correct for the common case (content
+served directly at a stable, per-request-verified URL) with zero merchant effort, and
+a merchant who does nothing else still does not leak. The alternatives are layers a
+merchant adds deliberately, and they compose with the guard rather than replacing it:
+run the payment through the guard at the paid route and keep that response `no-store`,
+then hand back a cacheable capability or signed URL for delivery. The cache concern
+moves to that URL, where unguessability (and an expiry) replaces `no-store`.
+
 ## Wiring it together: `protect`
 
 The four mitigations compose in one framework-agnostic call, `protect`, which runs
