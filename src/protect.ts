@@ -16,6 +16,10 @@
  * fails, or a finality gate that is not met, releases the reservation so the payer
  * can retry the same authorization.
  *
+ * On a grant, the caller MUST apply the returned `cacheControl` to the response
+ * headers; the cache-leak mitigation is that header, and `protect` cannot set it
+ * for you across an unknown framework.
+ *
  * It has no runtime dependencies and does not know about any HTTP framework or
  * about `@x402/core`: the caller passes plain callbacks. A Hono, Express, or
  * `@x402/core`-hook binding is a thin wrapper that supplies those callbacks.
@@ -26,6 +30,7 @@ import { paidResponseCacheDirectives } from "./cache.js";
 import { type GuardError, guardError } from "./error.js";
 import type { Guard, GuardErrorCode } from "./guard.js";
 import type { ReserveParams } from "./nonce-store.js";
+import { tryCatchAsync } from "./result.js";
 
 /** Why a `protect` call did not grant: a guard deny, a failed settle, or non-finality. */
 export type ProtectDenyReason = GuardErrorCode | "settle-failed" | "not-final";
@@ -63,17 +68,19 @@ export async function protect<TResource>(
     return { granted: false, reason: reservation.reason };
   }
 
-  const settled = await handlers.settle();
-  if (!settled) {
-    // The payment did not settle: free the nonce so the payer can retry it.
+  // A settle callback that rejects (a transient facilitator/RPC error is the
+  // common case) is a failed settle, not a grant: release so the payer can retry.
+  const settled = await tryCatchAsync(() => handlers.settle());
+  if (!settled.ok || !settled.value) {
     await reservation.release();
     return { granted: false, reason: guardError("settle-failed", "payment did not settle") };
   }
 
   if (handlers.confirm !== undefined) {
-    const final = await handlers.confirm();
-    if (!final) {
-      // Settled but reorged or not yet buried to finality: release and withhold.
+    // A confirm that rejects is treated as not-yet-final for the same reason:
+    // withhold the grant and free the nonce rather than leak a delivery.
+    const final = await tryCatchAsync(handlers.confirm);
+    if (!final.ok || !final.value) {
       await reservation.release();
       return { granted: false, reason: guardError("not-final", "settlement not final") };
     }

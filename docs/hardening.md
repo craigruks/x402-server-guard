@@ -1,9 +1,9 @@
 # Hardening rationale and sources
 
-Why the guard is shaped the way it is, and where each decision comes from. This
-document grows one section per mitigation as it lands. Today it covers the
-race and replay mitigation (PR: nonce reservation) and the hardening applied to
-it.
+Why the guard is shaped the way it is, and where each decision comes from. One
+section per mitigation: the race and replay reservation and the hardening applied
+to it, cross-resource substitution, grant-before-finality, cache leakage, and how
+`protect` composes them.
 
 The claims about this repository's own code are verifiable by running the tests
 (`npm run test:coverage`). Claims about external projects link to the source that
@@ -11,12 +11,21 @@ was read; where a specific commit was pinned it is named, since those files move
 
 ## Threat model
 
-The attack classes come from published research on x402 resource servers:
+The attack classes come from two papers on x402 resource servers. The paper that
+first names each class:
 
-- Cross-resource substitution, payment replay, and duplicate-settlement race:
-  [arXiv:2605.11781](https://arxiv.org/abs/2605.11781).
-- Cache leakage of paid content and grant-before-finality:
-  [arXiv:2605.30998](https://arxiv.org/abs/2605.30998).
+- Grant-before-finality, payment replay, the duplicate-settlement race, and cache
+  leakage of paid content: Zelin Li, Qin Wang, Zhipeng Wang, "Five Attacks on x402
+  Agentic Payment Protocol"
+  ([arXiv:2605.11781](https://arxiv.org/abs/2605.11781)), Attacks I-A, II, and III.
+- Cross-resource substitution, and the duplicate-settlement race again: Shengchen
+  Ling et al., "Free-Riding the Agentic Web: A Systematic Security Analysis of x402
+  Payments" ([arXiv:2605.30998](https://arxiv.org/abs/2605.30998)), its Context
+  Binding (I3) and Authorization Uniqueness (I4) invariants.
+
+The race and substitution appear in both; the two we mitigate that appear in only
+one paper (finality and cache) both come from Five Attacks, not Free-Riding, which
+does not analyze either.
 
 The reference these attacks apply to is Coinbase's official
 [`coinbase/x402`](https://github.com/coinbase/x402) TypeScript resource server. As
@@ -129,7 +138,8 @@ unconditional bound.
 
 ## Cross-resource substitution
 
-Source: [arXiv:2605.11781](https://arxiv.org/abs/2605.11781) (§ substitution).
+Source: [arXiv:2605.30998](https://arxiv.org/abs/2605.30998), Context Binding (I3);
+also [arXiv:2605.11781](https://arxiv.org/abs/2605.11781) (binding weakness).
 
 An EIP-3009 authorization signs `{from, to, value, validAfter, validBefore,
 nonce}` and, via the EIP-712 domain, the token and chain. It does **not** sign
@@ -160,7 +170,8 @@ Honest limits, stated so the mitigation is not oversold:
 
 ## Grant-before-finality
 
-Source: [arXiv:2605.30998](https://arxiv.org/abs/2605.30998) (§ finality).
+Source: [arXiv:2605.11781](https://arxiv.org/abs/2605.11781), Attack I-A
+(revert-grant under optimistic execution).
 
 A facilitator's `settle` reporting success means the payment landed in a block, not
 that it is final. Until it is buried under enough confirmations a chain reorg can
@@ -189,7 +200,9 @@ impossible.
 
 ## Cache leakage of paid content
 
-Source: [arXiv:2605.30998](https://arxiv.org/abs/2605.30998) (§ cache).
+Source: [arXiv:2605.11781](https://arxiv.org/abs/2605.11781), Attack III (HTTP /
+proxy-level handling: a paid response cached by an intermediary and served to
+unpaid clients).
 
 A shared cache (CDN or reverse proxy) in front of the resource server keys on the
 request URL and knows nothing about payment. If a paid 200 is cacheable, the cache

@@ -49,6 +49,10 @@ app.get("/report", async (c) => {
 
   // Bind the nonce to the SERVED route (the request path), not a client-claimed
   // resource. protect runs reserve -> settle -> grant and returns cache directives.
+  // `pathname` is a sufficient key only because this route's path alone names the
+  // resource. A route that distinguishes resources by query (`/dl?file=a`) must
+  // fold the relevant query into a canonical key, or a nonce bound at one value
+  // is accepted at another.
   const decision = await protect(
     guard,
     {

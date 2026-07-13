@@ -1,21 +1,14 @@
 /**
  * Cache directives for paid responses.
  *
- * A shared cache (CDN or reverse proxy) in front of the resource server keys on
- * the request URL and knows nothing about payment. If a paid 200 is cacheable, the
- * cache stores it and serves it to the next caller for that URL, paid or not: the
- * paid content leaks for free. The reference x402 adapters set no cache directive
- * on the paid response, so a shared cache is free to store it.
+ * A shared cache (CDN or reverse proxy) keys on the URL and knows nothing about
+ * payment, so a cacheable paid 200 can be stored and served to the next caller, paid
+ * or not. The reference x402 adapters set no cache directive, leaving that door open.
  *
- * The mitigation is a response directive, not a decision the guard makes about a
- * nonce, so it lives here as a small pure helper the server or adapter applies to
- * every paid response. `no-store` tells every cache, shared or private, not to
- * store the response at all; `private` additionally forbids a shared cache from
- * storing it even if `no-store` were relaxed. `Vary` on the payment header keeps a
- * cache that stores anyway from serving one payer's response to another.
- *
- * `no-store` is the load-bearing directive; the rest are defense in depth. A cache
- * that honors HTTP (any CDN) will not store a `no-store` response.
+ * The mitigation is a response directive, not a decision about a nonce, so it lives
+ * here as a small pure helper the server or adapter applies to every paid response.
+ * `no-store` is load-bearing (no conforming cache stores it); `private` and `Vary` on
+ * the payment header are defense in depth.
  */
 
 /** HTTP header directives to attach to a paid response so no cache serves it onward. */
@@ -41,10 +34,10 @@ export function paidResponseCacheDirectives(options: CacheDirectivesOptions = {}
 }
 
 /**
- * Whether a shared (CDN / reverse-proxy) cache may store a response carrying this
- * `Cache-Control`. A correct shared cache uses exactly this predicate: it refuses
- * to store a `no-store` or `private` response. Used by the caching model in the
- * tests, and the same rule a real CDN applies.
+ * Whether a shared (CDN / reverse-proxy) cache may store a response with this
+ * `Cache-Control`. A conforming shared cache refuses to store a `no-store` or
+ * `private` response. Used by the caching model in the tests. A CDN in force-cache
+ * mode ignores `Cache-Control`; this models a cache that honors it.
  */
 export function isStorableBySharedCache(cacheControl: string | undefined): boolean {
   if (cacheControl === undefined || cacheControl === "") {
