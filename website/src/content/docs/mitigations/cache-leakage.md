@@ -1,5 +1,7 @@
 ---
-title: 5. Cache leakage of paid content
+title: Cache leakage of paid content
+sidebar:
+  label: Cache leakage
 ---
 
 Ships in PR #20 (with `protect()` and the Hono binding). Research: Five Attacks

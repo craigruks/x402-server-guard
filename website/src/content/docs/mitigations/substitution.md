@@ -1,5 +1,7 @@
 ---
-title: 3. Cross-resource substitution
+title: Cross-resource substitution
+sidebar:
+  label: Substitution
 ---
 
 Ships in PR #18. Research: Free-Riding (Context Binding, I3), also Five Attacks

@@ -1,8 +1,11 @@
 ---
-title: 1. Understanding x402 (enough to follow the attacks)
+title: Understanding x402
+description: Enough of the protocol to follow the attacks.
+sidebar:
+  label: Understanding x402
 ---
 
-This page is the minimum you need to understand every attack in this wiki. It is a
+This page is the minimum you need to understand every attack in these guides. It is a
 short, attack-relevant version. For the real thing, read the official docs, which
 are excellent:
 

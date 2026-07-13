@@ -1,5 +1,7 @@
 ---
-title: 2. Duplicate-settlement race, and replay
+title: Duplicate-settlement race and replay
+sidebar:
+  label: Race & replay
 ---
 
 Ships in PR #16. Research: Five Attacks (Attack II), also Free-Riding (I4).

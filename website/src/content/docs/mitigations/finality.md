@@ -1,5 +1,7 @@
 ---
-title: 4. Grant-before-finality
+title: Grant-before-finality
+sidebar:
+  label: Finality
 ---
 
 Ships in PR #19. Research: Five Attacks (Attack I-A, revert-grant under optimistic

@@ -5,7 +5,7 @@ description: Install the guard and protect a paid route end to end with protect(
 
 This page wires the guard into a paid route in one pass. It mirrors
 [`examples/hono-server.ts`](https://github.com/craigruks/x402-server-guard/blob/main/examples/hono-server.ts)
-in the repo. Read [1. Understanding x402](/x402-server-guard/getting-started/understanding-x402/)
+in the repo. Read [Understanding x402](/x402-server-guard/getting-started/understanding-x402/)
 first if the `402` flow and the `verify` vs `settle` gap are new to you.
 
 ## Install
