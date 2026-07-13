@@ -5,6 +5,9 @@ coverage/
 *.log
 .DS_Store
 
+# Reference docs generated from docs/*.md by website/scripts/sync-reference-docs.mjs.
+website/src/content/docs/reference/
+
 # Local env files: never commit real keys. Templates (.env.example) stay tracked.
 .env
 .env.*

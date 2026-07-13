@@ -4,7 +4,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "sync:reference": "node scripts/sync-reference-docs.mjs",
+    "predev": "npm run sync:reference",
     "dev": "astro dev",
+    "prebuild": "npm run sync:reference",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"

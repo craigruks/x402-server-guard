@@ -49,20 +49,13 @@ export default defineConfig({
           ],
         },
         {
+          // These pages are generated from the repo's docs/*.md at build time by
+          // scripts/sync-reference-docs.mjs. Edit docs/*.md, not the generated files.
           label: "Reference",
           items: [
-            {
-              label: "Hardening rationale",
-              link: "https://github.com/craigruks/x402-server-guard/blob/main/docs/hardening.md",
-            },
-            {
-              label: "Coverage map",
-              link: "https://github.com/craigruks/x402-server-guard/blob/main/docs/coverage-map.md",
-            },
-            {
-              label: "Review methodology",
-              link: "https://github.com/craigruks/x402-server-guard/blob/main/docs/review.md",
-            },
+            "reference/hardening",
+            "reference/coverage-map",
+            "reference/review",
           ],
         },
       ],
