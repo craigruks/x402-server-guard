@@ -19,7 +19,7 @@ TypeScript or JavaScript consumer both import the same build.
 
 ## Protect a route with `protect()`
 
-`protect()` runs the whole secure flow (`reserve → settle → confirm → deliver`) and
+`protect()` runs the whole secure flow (`reserve → settle → (confirm) → deliver`) and
 returns the cache directives on grant, releasing the reservation if the settle fails
 or finality is not reached. It takes plain callbacks, so it drops into any framework.
 Verify the payment first (with the facilitator), then hand the authenticated nonce
@@ -54,6 +54,9 @@ app.get("/api", async (c) => {
     {
       settle: () => facilitator.settle(verified.nonce),
       deliver: () => ({ report: "paid content" }),
+      // Grant on settle success; finality rests with the facilitator and the chain.
+      // Use `finality: "confirm"` with a `confirm()` callback to hold for k confirmations.
+      finality: "facilitator",
     },
   );
 
@@ -78,7 +81,7 @@ to the response keeps a shared cache from serving the paid body to unpaid client
   [duplicate-settlement race and replay](/x402-server-guard/mitigations/race-and-replay/).
 - Binding the nonce to the served route closes
   [cross-resource substitution](/x402-server-guard/mitigations/substitution/).
-- Passing a `confirm()` callback holds to k confirmations for
-  [grant-before-finality](/x402-server-guard/mitigations/finality/).
+- Setting `finality: "confirm"` (with a `confirm()` callback) holds to k confirmations
+  for [grant-before-finality](/x402-server-guard/mitigations/finality/).
 - Setting `Cache-Control` closes
   [cache leakage](/x402-server-guard/mitigations/cache-leakage/).
