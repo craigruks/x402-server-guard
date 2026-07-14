@@ -15,8 +15,6 @@ a different resource, raced to duplicate delivery before settlement confirms, or
 leaked to unpaid clients through a shared cache. This library is the enforcement
 layer a merchant wraps their endpoint in to close those gaps.
 
-![A concurrent flood carrying one payment collapses to a single grant, then the full suite passes at 100% coverage](assets/demo.gif)
-
 > [!WARNING]
 > **Status: early, pre-1.0.** All four enumerated attack classes below have a
 > mitigation implemented. It is **not audited** and is **not a security
