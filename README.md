@@ -136,7 +136,10 @@ All four enumerated attack classes are covered; see the table below.
 Each ships with a paired test proving the attack against a vanilla server and
 proving it blocked by the guard. Every class is mapped to its research, mechanism,
 and proving test in [`docs/coverage-map.md`](./docs/coverage-map.md); the rationale
-is in [`docs/hardening.md`](./docs/hardening.md).
+is in [`docs/hardening.md`](./docs/hardening.md). The hardest questions about scope
+and honesty (is this a strawman, does the reference actually have these gaps, what
+this does not do) are answered in
+[`docs/objection-handling.md`](./docs/objection-handling.md).
 
 | Attack class | Status |
 | --- | --- |
