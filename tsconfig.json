@@ -24,5 +24,8 @@
     "sourceMap": true,
     "noEmit": true
   },
-  "include": ["src", "scripts", "test", "examples", "vitest.config.ts"]
+  "include": ["src", "scripts", "test", "examples", "vitest.config.ts"],
+  // Cloudflare adapter and its workers-runtime tests are typechecked against workers
+  // types by tsconfig.cloudflare.json / the workers vitest project, not this Node config.
+  "exclude": ["src/cloudflare", "test/cloudflare"]
 }

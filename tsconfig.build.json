@@ -9,5 +9,7 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  // The Cloudflare adapter is built separately (tsconfig.cloudflare.json) against
+  // workers types, so its `cloudflare:workers` import never enters the Node core build.
+  "exclude": ["src/**/*.test.ts", "src/cloudflare"]
 }
