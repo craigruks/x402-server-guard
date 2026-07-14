@@ -14,6 +14,10 @@ the use of this software. See the [LICENSE](./LICENSE) (MIT) for the full terms.
 How this code is reviewed before merge, and the limits of that review, are described
 in [docs/review.md](./docs/review.md).
 
+An independent audit is welcome. If you review security code professionally, the
+reporting channel below works for audit findings too; we would rather have this
+checked than ask anyone to take our word for it.
+
 ## Scope
 
 This library targets server-side ("resource server" / merchant) hardening for the

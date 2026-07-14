@@ -49,6 +49,10 @@ deny. It is not audited, and we say so in the README and SECURITY.md. Treat it a
 defense-in-depth with an explicit threat model and reproducible tests, not as a
 substitute for an audit.
 
+An independent audit is welcome. If you review security code professionally, open an
+issue or use the contact in SECURITY.md; we would rather have this checked than ask
+anyone to take our word for it.
+
 ### Why a separate library instead of fixing x402?
 
 Because most of what it hardens is x402's intended design, not a bug to patch. x402 is
