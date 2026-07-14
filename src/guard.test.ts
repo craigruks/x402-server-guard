@@ -192,7 +192,7 @@ describe("createGuard canonicalization", () => {
     expect((await guard.reserve(at("abcd", "/r"))).reserved).toBe(false);
   });
 
-  it("keys on the exact bytes when canonicalization is opted out", async () => {
+  it("is keyed on the exact bytes when canonicalization is opted out", async () => {
     const guard = createGuard({ canonicalizeNonce: (n) => n });
     expect((await guard.reserve(at("0xABCD", "/r"))).reserved).toBe(true);
     // A different string is a different key: both reserve (the pre-hardening behavior).

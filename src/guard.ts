@@ -70,7 +70,7 @@ export function createGuard(options: GuardOptions = {}): Guard {
   const canonicalizeResource = options.canonicalizeResource ?? canonicalResource;
   return {
     async reserve(params: ReserveParams): Promise<Reservation> {
-      // Fold both keys to canonical form up front; everything below keys on the
+      // Fold both keys to canonical form up front; everything below is keyed on the
       // canonical values (see canonical.ts for why two encodings must not split).
       const nonce = canonicalizeNonce(params.nonce);
       const resource = canonicalizeResource(params.resource);

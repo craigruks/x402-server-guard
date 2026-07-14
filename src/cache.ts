@@ -1,7 +1,7 @@
 /**
  * Cache directives for paid responses.
  *
- * A shared cache (CDN or reverse proxy) keys on the URL and knows nothing about
+ * A shared cache (CDN or reverse proxy) is keyed on the URL and knows nothing about
  * payment, so a cacheable paid 200 can be stored and served to the next caller, paid
  * or not. The reference x402 adapters set no cache directive, leaving that door open.
  *

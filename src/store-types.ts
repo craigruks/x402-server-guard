@@ -30,7 +30,7 @@ export type ReserveError = StoreError | GuardError<"store-at-capacity">;
 export interface ReserveParams {
   /**
    * The payment's nonce; the x402 exact scheme uses a random 32-byte value. The guard
-   * keys on this nonce alone (folded to a canonical form by default, see canonical.ts).
+   * is keyed on this nonce alone (folded to a canonical form by default, see canonical.ts).
    * It does not scope by chain or asset, so a store shared across several chains or
    * assets should namespace the nonce per (chain, asset) itself to keep two distinct
    * payments from colliding; a direct store caller must also pre-fold it.

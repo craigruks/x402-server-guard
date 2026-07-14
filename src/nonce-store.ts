@@ -5,10 +5,10 @@
  * are never split by an `await`. The in-memory store below is atomic by construction
  * (a synchronous body runs to completion); a distributed store must use a genuine
  * atomic compare-and-set (a Durable Object, Redis `SET .. NX`, a unique constraint).
- * Get-then-put stores (Workers KV, S3) reopen the race and are not safe here.
+ * Get-then-put stores (Workers KV, S3) reopen the race condition and are not safe here.
  *
  * `reserve` and `release` return a `Result`, so a store failure is a value the guard
- * turns into a fail-closed deny. Replay keys on the nonce, never the signature, which
+ * turns into a fail-closed deny. Replay is keyed on the nonce, never the signature, which
  * is what makes it immune to signature malleability. Full rationale: docs/hardening.md.
  * The contract itself lives in `store-types.ts` (Node-free, so non-Node adapters can
  * import it); this module owns the Node in-memory implementation.
@@ -106,7 +106,7 @@ export class MemoryNonceStore implements NonceStore {
       return Promise.resolve(ok({ status: "already-reserved", boundResource: existing.resource }));
     }
     // Reject a fresh reservation once full rather than grow unbounded or evict a live
-    // entry (which reopens the race). Overwriting a dead entry is exempt (no growth).
+    // entry (which reopens the race condition). Overwriting a dead entry is exempt (no growth).
     if (existing === undefined && this.reserved.size >= this.maxEntries) {
       return Promise.resolve(err(guardError("store-at-capacity", "nonce store at capacity")));
     }
