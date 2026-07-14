@@ -137,6 +137,21 @@ All four enumerated attack classes are covered; see the table below.
   drops into Hono, Express, Next, or Fastify. A Hono binding is shown in the
   examples; an `@x402/core`-hook convenience wrapper is a thin layer over `protect`.
 
+## Taking the dependency (or not)
+
+If you run a payment endpoint, you are right to want as few dependencies as possible.
+This library has none at runtime, and the core is small enough to read in one sitting. If
+you would rather not add a dependency at all, lift the primitives you use straight into
+your own code: the reservation, the finality hold, and the cache directives are each a
+small, self-contained file, and a coding agent can pull over the parts you need in a few
+minutes. That is a supported way to use this.
+
+If you do take the dependency, we have tried to make depending on us safe. Releases
+publish through GitHub Actions using npm trusted publishing (OIDC), so no long-lived npm
+token exists for an attacker to steal; tokens are disallowed on the package, publishing
+requires two-factor auth, and CI-published releases carry build provenance that ties the
+package to the exact commit and workflow that built it.
+
 ## Mitigations
 
 Each ships with a paired test proving the attack against a vanilla server and
