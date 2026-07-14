@@ -40,6 +40,10 @@ export default defineConfig({
           ],
         },
         {
+          label: "Deployment",
+          items: ["deployment/cloudflare-durable-objects"],
+        },
+        {
           label: "Mitigations",
           items: [
             "mitigations/race-and-replay",
