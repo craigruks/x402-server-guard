@@ -59,9 +59,7 @@ Because most of what it hardens is x402's intended design, not a bug to patch. x
 optimistic on purpose: settlement is slow, and making every request block on it would
 ruin the agentic-payment experience. The reference correctly leaves "dedupe concurrent
 requests, wait for finality, set cache headers" to the integrator. This is that
-integrator-side layer, for merchants who cannot run optimistically. We are also
-preparing a coordinated note to the x402 maintainers about the concurrency gap, since
-a shared primitive upstream would help everyone.
+integrator-side layer, for merchants who cannot run optimistically.
 
 ### I'm on Base, do I even need this?
 
