@@ -23,14 +23,16 @@ export function canonicalNonce(nonce: string): string {
 
 /**
  * Canonicalize a resource key. When it is an absolute URL, return the WHATWG-URL
- * canonical form: scheme and host case-folded, the default port dropped,
- * dot-segments resolved, and percent-encoding normalized (all same-resource per RFC
- * 3986). Path, query, and fragment CASE is preserved, so `/Foo` and `/foo` stay
- * distinct and merging cannot open a substitution hole; normalize trailing slashes
- * and query order yourself if a resource needs it. A non-URL key (a bare path or an
- * opaque string) is returned unchanged. Note: the URL parser's IDN/punycode output
- * can vary with the runtime's ICU, so a persistent distributed store should pin a
- * stable resource form rather than rely on this across engine upgrades.
+ * canonical form: scheme and host case-folded, the default port dropped, and
+ * dot-segments resolved. It does NOT decode percent-encoded octets (`%41` stays
+ * `%41`, not `A`), so this is not full RFC 3986 equivalence; two RFC-equivalent paths
+ * that differ only in percent-encoding get different keys. Path, query, and fragment
+ * CASE is preserved, so `/Foo` and `/foo` stay distinct and merging cannot open a
+ * substitution hole; normalize trailing slashes and query order yourself if a resource
+ * needs it. A non-URL key (a bare path or an opaque string) is returned unchanged.
+ * Note: the URL parser's IDN/punycode output can vary with the runtime's ICU, so a
+ * persistent distributed store should pin a stable resource form rather than rely on
+ * this across engine upgrades.
  */
 export function canonicalResource(resource: string): string {
   const parsed = tryCatch(() => new URL(resource));

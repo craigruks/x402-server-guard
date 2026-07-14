@@ -60,6 +60,7 @@ export default defineConfig({
             "reference/hardening",
             "reference/coverage-map",
             "reference/review",
+            "reference/objection-handling",
           ],
         },
       ],

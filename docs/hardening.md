@@ -19,9 +19,9 @@ first names each class:
   Agentic Payment Protocol"
   ([arXiv:2605.11781](https://arxiv.org/abs/2605.11781)), Attacks I-A, II, and III.
 - Cross-resource substitution, and the duplicate-settlement race again: Shengchen
-  Ling et al., "Free-Riding the Agentic Web: A Systematic Security Analysis of x402
-  Payments" ([arXiv:2605.30998](https://arxiv.org/abs/2605.30998)), its Context
-  Binding (I3) and Authorization Uniqueness (I4) invariants.
+  Ling et al., "Free-Riding in the AI Economy: Demystifying Logic Flaws in
+  x402-Enabled Payment Systems" ([arXiv:2605.30998](https://arxiv.org/abs/2605.30998)),
+  its Context Binding (I3) and Authorization Uniqueness (I4) invariants.
 
 The race and substitution appear in both; the two we mitigate that appear in only
 one paper (finality and cache) both come from Five Attacks, not Free-Riding, which
@@ -286,5 +286,7 @@ payer claims, is what makes the substitution mitigation sound. See
   bitmap layout does not transfer. The principle (one atomic conditional write)
   does, and is what we use.
 - Independent signature verification (and the low-s malleability check it would
-  need) lives one layer down from the guard. It ships later behind an optional
-  adapter, never in the core path, so the core keeps zero runtime dependencies.
+  need) lives one layer down from the guard, by design: it needs cryptographic
+  primitives, so it stays out of the core path and the core keeps zero runtime
+  dependencies. The facilitator verifies payments; the guard hardens the flow around
+  that.

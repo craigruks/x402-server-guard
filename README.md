@@ -71,8 +71,11 @@ return grant(resource);
 > `createGuard()` with no store uses an in-memory store that protects **one process
 > only**. On Cloudflare Workers, Vercel, AWS Lambda, or any autoscaled fleet, each
 > isolate holds its own map, so replay and race protection do not hold across
-> instances. For those deploys, pass a store backed by an atomic compare-and-set. A
-> Cloudflare Durable Object adapter ships in the box:
+> instances. For those deploys, pass a store backed by an atomic compare-and-set: a
+> Durable Object, Redis `SET NX`, or a database unique constraint (not a plain
+> get-then-put store like Workers KV, which reopens the race). Any backend that
+> implements the `NonceStore` contract works. One is built start to finish in the box, a
+> Cloudflare Durable Object adapter:
 > `import { createDurableObjectNonceStore } from "@craigruks/x402-server-guard/cloudflare"`
 > (see [the deployment guide](https://craigruks.github.io/x402-server-guard/deployment/cloudflare-durable-objects/)).
 > The atomic compare-and-set contract for other backends is in
@@ -116,10 +119,12 @@ All four enumerated attack classes are covered; see the table below.
 
 ## Design principles
 
-- **Zero runtime dependencies.** The core relies only on Node's built-in `crypto`.
-  Every dependency is attack surface; a hardening library should have as little of
-  it as possible. Independent signature verification (which needs cryptographic
-  primitives) will ship later behind an optional adapter, never in the core path.
+- **Zero runtime dependencies.** The core uses only the Web Platform `crypto` global
+  (`crypto.randomUUID`), present on Node 22+, Cloudflare Workers, and Deno, so the guard
+  runs in any modern runtime without a polyfill. Every dependency is attack surface; a
+  hardening library should have as little of it as possible. Independent signature
+  verification would need cryptographic primitives, so it stays out of the core path by
+  design; the facilitator verifies payments, and the guard hardens the flow around that.
 - **Installs clean under npm v12's hardened defaults**: no lifecycle scripts, no
   `npm approve-scripts` step, nothing to allow.
 - **Small enough to read.** Source files are capped so the whole library can be
@@ -134,13 +139,16 @@ All four enumerated attack classes are covered; see the table below.
 Each ships with a paired test proving the attack against a vanilla server and
 proving it blocked by the guard. Every class is mapped to its research, mechanism,
 and proving test in [`docs/coverage-map.md`](./docs/coverage-map.md); the rationale
-is in [`docs/hardening.md`](./docs/hardening.md).
+is in [`docs/hardening.md`](./docs/hardening.md). The hardest questions about scope
+and honesty (is this a strawman, does the reference actually have these gaps, what
+this does not do) are answered in
+[`docs/objection-handling.md`](./docs/objection-handling.md).
 
 | Attack class | Status |
 | --- | --- |
 | Duplicate-settlement race | done |
 | Payment replay | done (same nonce reservation) |
-| Cross-resource substitution | done |
+| Cross-resource substitution | done (same nonce reservation, distinct reason) |
 | Grant-before-finality (k-confirmations) | done |
 | Cache leakage of paid content | done |
 

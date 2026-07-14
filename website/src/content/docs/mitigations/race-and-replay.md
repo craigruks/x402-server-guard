@@ -4,7 +4,7 @@ sidebar:
   label: Race & replay
 ---
 
-Ships in PR #16. Research: Five Attacks (Attack II), also Free-Riding (I4).
+Research: Five Attacks (Attack II), also Free-Riding (I4).
 
 ## The attack in plain terms
 
@@ -106,8 +106,31 @@ rewritten twin and slip a second request through. The nonce lives inside the sig
 message and is identical for both forms, so keying on the nonce makes the twin
 collide and get denied. That is why the store keys on the nonce.
 
+## How this compares to the real x402 reference
+
+This is not only a strawman. The reference `@x402/core` resource server
+(`x402HTTPResourceServer`) verifies the payment and returns a `payment-verified`
+result with **no** settlement; settlement is a separate `processSettlement` call the
+framework makes after the handler runs. `verify` takes no nonce lock and there is no
+single-flight, so N concurrent requests carrying one payment all reach
+`payment-verified` before any settlement. We reproduce exactly that against the real
+class: 20 concurrent requests, 20 verified, 0 settled, then one settlement wins, 19
+resources free.
+
+What happens next depends on your framework glue. An adapter that delivers when
+`payment-verified` returns (the naive shape) hands out N bodies. An adapter that
+buffers the response, settles, and flushes only on success closes the duplicate
+*delivery* (one body out), but it still ran your handler N times (any side effects, N
+times) and still admitted N requests through verify. Either way the guard closes it at
+the front door: an atomic reservation before the handler runs, so exactly one request
+proceeds. Two independent papers find this class against Coinbase's official x402 SDKs
+(see the [coverage map](/x402-server-guard/reference/coverage-map/) for citations).
+
 ## What proves it
 
-[`test/attacks/duplicate-settlement-race.test.ts`](https://github.com/craigruks/x402-server-guard/blob/main/test/attacks/duplicate-settlement-race.test.ts):
-the baseline test grants 5 for 1 payment; the guarded test grants exactly 1, and a
-replay is denied.
+- [`test/attacks/duplicate-settlement-race.test.ts`](https://github.com/craigruks/x402-server-guard/blob/main/test/attacks/duplicate-settlement-race.test.ts):
+  the baseline grants 5 for 1 payment; the guarded test grants exactly 1, and a replay
+  is denied.
+- [`test/attacks/reference-race.test.ts`](https://github.com/craigruks/x402-server-guard/blob/main/test/attacks/reference-race.test.ts):
+  the same race against the real `@x402/core` `x402HTTPResourceServer`, with the guard
+  reducing a 20-way flood to one grant.

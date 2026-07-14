@@ -18,7 +18,7 @@
  * real guard's k is a per-chain setting, not the constant used here.
  */
 import { describe, expect, it } from "vitest";
-import { createGuard } from "../../src/index.js";
+import { createGuard, protect } from "../../src/index.js";
 import {
   createTestbed,
   FakeChain,
@@ -118,5 +118,76 @@ describe("guarded: grant-before-finality", () => {
     expect(chain.confirmationsOf(nonce)).toBeGreaterThanOrEqual(FINALITY_CONFIRMATIONS);
     expect(chain.reorg(nonce)).toBe(false); // too deep to revert: the grant is safe
     expect(chain.isConsumed(nonce)).toBe(true);
+  });
+});
+
+// The block above drives the guard primitives directly. This one drives the shipped
+// `protect` flow with `finality: "confirm"`, so the finality gate is proven end to end
+// through the call a merchant actually makes, not assembled by hand in the test.
+describe("guarded through protect: the finality gate holds and releases on reorg", () => {
+  const RESOURCE = "https://api.example.com/report";
+  const EXPIRES_AT = 2_000_000_000;
+
+  it("withholds the grant and releases the nonce when confirm() sees a pre-finality reorg", async () => {
+    const chain = new FakeChain();
+    const facilitator = new FakeFacilitator(chain);
+    const guard = createGuard();
+    const nonce = newNonce();
+    const { payload, requirements } = makePayment({ nonce });
+    let delivered = false;
+
+    const decision = await protect(
+      guard,
+      { nonce, resource: RESOURCE, expiresAt: EXPIRES_AT },
+      {
+        settle: async () => (await facilitator.settle(payload, requirements)).success,
+        deliver: () => {
+          delivered = true;
+          return { report: "paid" };
+        },
+        finality: "confirm",
+        confirm: async () => {
+          // Settlement landed at zero confirmations; a reorg drops it before it is
+          // buried past FINALITY_CONFIRMATIONS, so it is not final.
+          chain.reorg(nonce);
+          return (chain.confirmationsOf(nonce) ?? 0) >= FINALITY_CONFIRMATIONS;
+        },
+      },
+    );
+
+    expect(decision.granted).toBe(false);
+    if (!decision.granted) {
+      expect(decision.reason.code).toBe("not-final");
+    }
+    expect(delivered).toBe(false); // the resource was never handed over
+    // The reorg freed the nonce on-chain, and protect released the reservation, so the
+    // payer can retry the same authorization.
+    const retry = await guard.reserve({ nonce, resource: RESOURCE, expiresAt: EXPIRES_AT });
+    expect(retry.reserved).toBe(true);
+  });
+
+  it("grants once confirm() sees the settlement reach finality", async () => {
+    const chain = new FakeChain();
+    const facilitator = new FakeFacilitator(chain);
+    const guard = createGuard();
+    const nonce = newNonce();
+    const { payload, requirements } = makePayment({ nonce });
+
+    const decision = await protect(
+      guard,
+      { nonce, resource: RESOURCE, expiresAt: EXPIRES_AT },
+      {
+        settle: async () => (await facilitator.settle(payload, requirements)).success,
+        deliver: () => ({ report: "paid" }),
+        finality: "confirm",
+        confirm: async () => {
+          chain.mineBlocks(FINALITY_CONFIRMATIONS); // buried past finality
+          return (chain.confirmationsOf(nonce) ?? 0) >= FINALITY_CONFIRMATIONS;
+        },
+      },
+    );
+
+    expect(decision.granted).toBe(true);
+    expect(chain.reorg(nonce)).toBe(false); // too deep to revert: the grant is safe
   });
 });

@@ -42,6 +42,11 @@ const PAGES = {
     label: "Review methodology",
     description: "How the guard is reviewed, and its limits.",
   },
+  "objection-handling.md": {
+    slug: "objection-handling",
+    label: "Objection handling",
+    description: "The hardest questions about the guard, answered honestly.",
+  },
 };
 
 // Rewrite markdown link targets. Leaves absolute URLs, anchors, and mailto alone.

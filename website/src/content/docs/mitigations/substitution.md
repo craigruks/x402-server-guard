@@ -4,8 +4,7 @@ sidebar:
   label: Substitution
 ---
 
-Ships in PR #18. Research: Free-Riding (Context Binding, I3), also Five Attacks
-(binding weakness).
+Research: Free-Riding (Context Binding, I3), also Five Attacks (binding weakness).
 
 ## The attack in plain terms
 
@@ -39,12 +38,18 @@ app.get("/api/report", (c) => handlePaid(c, () => ({ report: "..." })));
 app.get("/api/photo",  (c) => handlePaid(c, () => ({ photo:  "..." }))); // pay report, take photo
 ```
 
-## After: bind the nonce to the resource it was first reserved for
+## After: one payment, one resource
 
-The guard records, at reservation time, which resource a nonce was used for. If the
-same nonce shows up at a different resource, it is denied with a distinct reason,
-`nonce-resource-mismatch`. Because the binding happens at reserve (before settle),
-it catches the substitution in the same window the race fix covers.
+Be precise about where the protection comes from. The guard's single-use reservation
+already prevents one payment being spent at two resources: the second use of a nonce is
+denied whichever resource it targets. That is the same mechanism as the replay fix, so
+substitution does not need a separate control, and we do not claim it as one.
+
+What the resource binding adds is a *distinct reason*, not a distinct decision. A nonce
+first bound to `/api/report` and re-presented at `/api/photo` is denied as
+`nonce-resource-mismatch` rather than a plain `nonce-already-reserved`. The grant/deny
+outcome is identical either way; the binding only lets you tell a substitution attempt
+from an ordinary duplicate in your logs and metrics, so you can respond differently.
 
 ```ts
 const reservation = await guard.reserve({
