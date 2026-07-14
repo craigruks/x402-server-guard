@@ -3,6 +3,9 @@
 **Server-side hardening middleware for [x402](https://github.com/coinbase/x402)
 payment endpoints.**
 
+[![CI](https://github.com/craigruks/x402-server-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/craigruks/x402-server-guard/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 Documentation: https://craigruks.github.io/x402-server-guard/
 
 x402 lets a server charge for a resource by returning `402 Payment Required` and
@@ -11,6 +14,8 @@ server is exploitable in several ways: a payment can be replayed, reused against
 a different resource, raced to duplicate delivery before settlement confirms, or
 leaked to unpaid clients through a shared cache. This library is the enforcement
 layer a merchant wraps their endpoint in to close those gaps.
+
+![A concurrent flood carrying one payment collapses to a single grant, then the full suite passes at 100% coverage](assets/demo.gif)
 
 > [!WARNING]
 > **Status: early, pre-1.0.** All four enumerated attack classes below have a

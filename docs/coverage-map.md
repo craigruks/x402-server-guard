@@ -50,8 +50,10 @@ listed here is out of scope. See [`SECURITY.md`](../SECURITY.md).
   Attack I-A (revert-grant under optimistic execution) is grant-before-finality;
   Attack II (replay / idempotency across the HTTP-chain boundary) is the race and
   replay; Attack III (HTTP / proxy-level handling) is the cache leak; the binding
-  weakness is cross-resource substitution. Attack IV (server-selection / Sybil) is
-  out of this library's scope.
+  weakness is cross-resource substitution. Attacks I-B (unauthorized settlement
+  preemption) and IV (server-selection / Sybil) are out of this library's scope:
+  I-B is a settlement-path and facilitator concern the resource server cannot
+  enforce, and IV occurs at endpoint discovery before the payment flow begins.
 - **Free-Riding**: Shengchen Ling, Yihang Huang, Yuefeng Du, Yuan Chen, Yajin Zhou,
   Lei Wu, Cong Wang. "Free-Riding in the AI Economy: Demystifying Logic Flaws in
   x402-Enabled Payment Systems." arXiv:2605.30998. https://arxiv.org/abs/2605.30998

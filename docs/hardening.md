@@ -290,3 +290,47 @@ payer claims, is what makes the substitution mitigation sound. See
   primitives, so it stays out of the core path and the core keeps zero runtime
   dependencies. The facilitator verifies payments; the guard hardens the flow around
   that.
+
+## Unauthorized settlement preemption (Attack I-B) is out of scope
+
+[Five Attacks] splits its settlement-path attack in two. Attack I-A (revert-grant
+under optimistic execution) is what grant-before-finality closes. Attack I-B,
+unauthorized settlement preemption, is not something a resource-server library can
+prevent, and this section says why plainly rather than leave the omission unexplained.
+
+In I-B an attacker on the request path (logging middleware, a TLS terminator, an API
+gateway) or a Byzantine server observes the `X-PAYMENT` header, then submits the same
+signed `transferWithAuthorization` to the chain first, for a few cents of L2 gas. The
+funds still reach the merchant, because EIP-3009 binds the `to` address, but the nonce
+is now consumed by the attacker's transaction, so the honest facilitator's settlement
+fails with nonce-already-used. The payer is charged and the resource is denied. The
+victim is the payer, not the merchant.
+
+The root cause is that EIP-3009 puts no caller restriction on settlement: any observer
+can submit a signed authorization. The fix the paper prescribes (M2, facilitator-bound
+settlement) is a change at the settlement layer, not the resource server: a Permit2
+Witness carrying a `facilitator` field enforced as `msg.sender == witness.facilitator`,
+or an EIP-3009 wrapper contract that checks the caller before it transfers. That is
+on-chain contract code and facilitator control. This library is off-chain middleware
+with zero runtime dependencies; it deploys no contracts and does not own the settlement
+call, so M2 lives one to two layers below it and cannot be implemented here.
+
+What the guard does relative to I-B is a byproduct of failing closed, not a fix: it
+settles before granting, so when the honest settlement fails the merchant denies rather
+than delivering. That stops a preemption from becoming a free grant, but it cannot
+un-charge the payer, whose loss already happened on-chain.
+
+The one control the operator does hold: treat the `X-PAYMENT` header as bearer payment
+material. Do not log it, terminate TLS at the application, and keep it off untrusted
+middleware and gateways. That removes the request-path observer the attack depends on.
+
+## Server-selection (Attack IV) is out of scope
+
+[Five Attacks] Attack IV (server-selection, including Sybil) happens at endpoint
+discovery, before the payment protocol begins: an attacker influences which x402
+endpoint a client picks, steering traffic to a server it controls or floods. The guard
+runs inside an endpoint the client has already chosen; it sees a request, not the
+discovery that routed the request to it, so it has no state on which to act. The defense
+belongs to the discovery layer (the service registry, DNS, and the client's own trust
+and selection policy), not to resource-server middleware. It is named here only so the
+scope boundary is complete, not selective.

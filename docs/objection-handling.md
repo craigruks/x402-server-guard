@@ -116,6 +116,27 @@ adapter that settles before flushing bytes closes grant-before-*settle*, but not
 grant-before-*finality*: a shallow-confirmation settlement can still reverse after the
 body is out.
 
+### You close Attack I-A but not I-B (unauthorized settlement preemption). Why not, and shouldn't a serious hardening library cover it?
+
+Because I-B cannot be fixed at this layer, and pretending otherwise would be dishonest.
+In I-B an attacker who observes the `X-PAYMENT` header in transit (a logging proxy, a
+TLS terminator, a Byzantine server) submits the signed authorization to the chain first,
+for a few cents of gas. The funds still reach the merchant, since EIP-3009 binds the
+`to` address, but the attacker's transaction consumes the nonce, so the honest
+settlement fails and the payer is charged with nothing delivered. The victim is the
+payer, not the merchant. The root cause is that EIP-3009 places no caller restriction on
+settlement: any observer can submit a signed authorization. The fix (facilitator-bound
+settlement: a Permit2 Witness enforcing `msg.sender == witness.facilitator`, or an
+EIP-3009 wrapper contract that checks the caller) is on-chain contract code and
+facilitator control, one to two layers below an off-chain, zero-dependency resource-server
+library. We cannot deploy a contract or own the settlement call from here. What the guard
+does do is a byproduct of failing closed: it settles before granting, so a preempted
+payment produces a deny, not a free grant, though it cannot un-charge the payer. The one
+control an operator holds is to treat the `X-PAYMENT` header as bearer payment material:
+do not log it, terminate TLS at the app, and keep it off untrusted middleware. That is in
+[the hardening notes](/x402-server-guard/reference/hardening/); the on-chain fix is not
+ours to ship.
+
 ### You trust the facilitator for signature and amount verification. Isn't independent verification the harder, more valuable problem?
 
 It may be the higher-value target, but it is a different one, and the boundary is
