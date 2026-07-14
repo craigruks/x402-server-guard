@@ -120,8 +120,8 @@ All four enumerated attack classes are covered; see the table below.
   (`crypto.randomUUID`), present on Node 22+, Cloudflare Workers, and Deno, so the guard
   runs in any modern runtime without a polyfill. Every dependency is attack surface; a
   hardening library should have as little of it as possible. Independent signature
-  verification (which needs cryptographic primitives) will ship later behind an optional
-  adapter, never in the core path.
+  verification would need cryptographic primitives, so it stays out of the core path by
+  design; the facilitator verifies payments, and the guard hardens the flow around that.
 - **Installs clean under npm v12's hardened defaults**: no lifecycle scripts, no
   `npm approve-scripts` step, nothing to allow.
 - **Small enough to read.** Source files are capped so the whole library can be

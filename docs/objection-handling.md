@@ -120,14 +120,13 @@ body is out.
 
 ### You trust the facilitator for signature and amount verification. Isn't independent verification the harder, more valuable problem?
 
-You are right that it is the higher-value target, and today we do not do it. The guard
-trusts the facilitator's `/verify` result and hardens the server-side flow around it
-(reservation, finality, cache). That is an explicit boundary, not an oversight: the
-concurrency race exists regardless of who verifies the signature. Independent signature
-and amount verification (not taking the facilitator's word for it) is on the roadmap as
-an optional adapter, kept out of the core so the core stays dependency-free. We would
-rather ship the reservation primitive correct and verified than bundle a half-done
-verifier.
+It may be the higher-value target, but it is a different one, and the boundary is
+deliberate. The guard trusts the facilitator's `/verify` result and hardens the
+server-side flow around it (reservation, finality, cache). Verifying the signature and
+amount is the facilitator's role; reproducing it in the guard would pull cryptographic
+primitives into a core that is dependency-free by design, so it stays out. The
+concurrency race this library closes exists regardless of who verifies the signature,
+so the two concerns are cleanly separable.
 
 ### Your Durable Object store has no `maxEntries` cap. Can't a wallet flood you into unbounded objects?
 

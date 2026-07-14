@@ -286,5 +286,7 @@ payer claims, is what makes the substitution mitigation sound. See
   bitmap layout does not transfer. The principle (one atomic conditional write)
   does, and is what we use.
 - Independent signature verification (and the low-s malleability check it would
-  need) lives one layer down from the guard. It ships later behind an optional
-  adapter, never in the core path, so the core keeps zero runtime dependencies.
+  need) lives one layer down from the guard, by design: it needs cryptographic
+  primitives, so it stays out of the core path and the core keeps zero runtime
+  dependencies. The facilitator verifies payments; the guard hardens the flow around
+  that.
