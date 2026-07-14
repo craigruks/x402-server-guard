@@ -71,8 +71,11 @@ return grant(resource);
 > `createGuard()` with no store uses an in-memory store that protects **one process
 > only**. On Cloudflare Workers, Vercel, AWS Lambda, or any autoscaled fleet, each
 > isolate holds its own map, so replay and race protection do not hold across
-> instances. For those deploys, pass a store backed by an atomic compare-and-set. A
-> Cloudflare Durable Object adapter ships in the box:
+> instances. For those deploys, pass a store backed by an atomic compare-and-set: a
+> Durable Object, Redis `SET NX`, or a database unique constraint (not a plain
+> get-then-put store like Workers KV, which reopens the race). Any backend that
+> implements the `NonceStore` contract works. One is built start to finish in the box, a
+> Cloudflare Durable Object adapter:
 > `import { createDurableObjectNonceStore } from "@craigruks/x402-server-guard/cloudflare"`
 > (see [the deployment guide](https://craigruks.github.io/x402-server-guard/deployment/cloudflare-durable-objects/)).
 > The atomic compare-and-set contract for other backends is in

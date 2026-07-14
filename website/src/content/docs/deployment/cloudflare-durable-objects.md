@@ -9,6 +9,13 @@ isolates each reserve the same nonce independently and both grant. The reservati
 to live in one place that every isolate agrees on, updated with a genuine atomic
 compare-and-set. On Cloudflare, a Durable Object is that place.
 
+The store is a contract, not a specific product. Any backend with a genuine atomic
+compare-and-set can implement `NonceStore`: a Durable Object, Redis `SET NX`, or a
+database unique constraint. A plain get-then-put store (Workers KV, S3) cannot, because
+with no atomic write the read-to-set gap reopens the race. This guide is one backend,
+the one we ship, built start to finish on Cloudflare. The same pattern applies to any
+of the others: an atomic reserve, a fenced release, and an eviction path.
+
 ## How it works
 
 The adapter routes every nonce to its own Durable Object (`idFromName(nonce)`). A
