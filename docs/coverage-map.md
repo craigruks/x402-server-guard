@@ -55,8 +55,8 @@ listed here is out of scope. See [`SECURITY.md`](../SECURITY.md).
   I-B is a settlement-path and facilitator concern the resource server cannot
   enforce, and IV occurs at endpoint discovery before the payment flow begins.
 - **Free-Riding**: Shengchen Ling, Yihang Huang, Yuefeng Du, Yuan Chen, Yajin Zhou,
-  Lei Wu, Cong Wang. "Free-Riding in the AI Economy: Demystifying Logic Flaws in
-  x402-Enabled Payment Systems." arXiv:2605.30998. https://arxiv.org/abs/2605.30998
+  Lei Wu, Cong Wang. "Free-Riding the Agentic Web: A Systematic Security Analysis of
+  x402 Payments." arXiv:2605.30998. https://arxiv.org/abs/2605.30998
   Cross-resource substitution violates its Context Binding invariant (I3);
   probabilistic service duplication violates Authorization Uniqueness (I4). Its
   allowance-overdraft and denial-of-settlement flaws are out of this library's scope.

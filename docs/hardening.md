@@ -19,8 +19,8 @@ first names each class:
   Agentic Payment Protocol"
   ([arXiv:2605.11781](https://arxiv.org/abs/2605.11781)), Attacks I-A, II, and III.
 - Cross-resource substitution, and the duplicate-settlement race again: Shengchen
-  Ling et al., "Free-Riding in the AI Economy: Demystifying Logic Flaws in
-  x402-Enabled Payment Systems" ([arXiv:2605.30998](https://arxiv.org/abs/2605.30998)),
+  Ling et al., "Free-Riding the Agentic Web: A Systematic Security Analysis of x402
+  Payments" ([arXiv:2605.30998](https://arxiv.org/abs/2605.30998)),
   its Context Binding (I3) and Authorization Uniqueness (I4) invariants.
 
 The race and substitution appear in both; the two we mitigate that appear in only
