@@ -1,0 +1,12 @@
+{
+  // Builds only the Cloudflare adapter, against workers types instead of Node types,
+  // so `cloudflare:workers` resolves and the Node globals never collide with it. The
+  // adapter imports only Node-free core modules (store-types, error, result), so this
+  // program never needs `@types/node`.
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["src/cloudflare"],
+  "exclude": ["src/**/*.test.ts"]
+}

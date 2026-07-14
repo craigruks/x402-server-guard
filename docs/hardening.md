@@ -88,9 +88,12 @@ completion. A store shared across serverless isolates must use a native atomic
 compare-and-set: a Durable Object, Redis `SET ... NX`, or a database unique
 constraint (permit2 and CoW both rely on exactly this kind of atomic write).
 Plain get-then-put stores (Cloudflare Workers KV, S3) are not sufficient: with no
-compare-and-set, an `await` sits in the check-to-set gap and reopens the race.
-Those adapters are a later chapter, and the store docstring says so. The
-compare-and-set closes the double-spend race on its own. Refusing an
+compare-and-set, an `await` sits in the check-to-set gap and reopens the race. A
+Cloudflare Durable Object adapter ships in the box (`createDurableObjectNonceStore`
+on the `/cloudflare` subpath), which routes each nonce to its own object and gets the
+atomic check-and-set from Durable Object input gating; other backends (Redis, a
+database constraint) implement the same `NonceStore` contract. The compare-and-set
+closes the double-spend race on its own. Refusing an
 already-expired authorization atomically with it needs a Lua script or a
 constraint that encodes the expiry, not bare `SET NX`; treating the expiry as a
 separate predicate before the CAS is acceptable, since it only races `now`

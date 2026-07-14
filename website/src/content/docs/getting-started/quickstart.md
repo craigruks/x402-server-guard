@@ -17,6 +17,15 @@ npm install @craigruks/x402-server-guard
 Node ≥ 22. Zero runtime dependencies. Ships ESM with type declarations; a
 TypeScript or JavaScript consumer both import the same build.
 
+:::caution[The default store is single-process]
+`createGuard()` with no store uses an in-memory store that protects **one process
+only**. On Cloudflare Workers, Vercel, AWS Lambda, or any autoscaled fleet, each
+isolate holds its own map, so replay and race protection do **not** hold across
+instances. For those deploys you must pass a store backed by an atomic compare-and-set.
+See [Cloudflare Durable Objects](/x402-server-guard/deployment/cloudflare-durable-objects/)
+for the shipped adapter.
+:::
+
 ## Protect a route with `protect()`
 
 `protect()` runs the whole secure flow (`reserve → settle → (confirm) → deliver`) and

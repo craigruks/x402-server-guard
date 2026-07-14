@@ -67,9 +67,16 @@ if (!settled.success) {
 return grant(resource);
 ```
 
-The reservation defaults to an in-memory store (single process). A store shared
-across serverless isolates needs a genuine atomic compare-and-set; see
-[`docs/hardening.md`](./docs/hardening.md).
+> [!WARNING]
+> `createGuard()` with no store uses an in-memory store that protects **one process
+> only**. On Cloudflare Workers, Vercel, AWS Lambda, or any autoscaled fleet, each
+> isolate holds its own map, so replay and race protection do not hold across
+> instances. For those deploys, pass a store backed by an atomic compare-and-set. A
+> Cloudflare Durable Object adapter ships in the box:
+> `import { createDurableObjectNonceStore } from "@craigruks/x402-server-guard/cloudflare"`
+> (see [the deployment guide](https://craigruks.github.io/x402-server-guard/deployment/cloudflare-durable-objects/)).
+> The atomic compare-and-set contract for other backends is in
+> [`docs/hardening.md`](./docs/hardening.md).
 
 ### One call: `protect`
 

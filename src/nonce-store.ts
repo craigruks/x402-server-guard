@@ -1,69 +1,37 @@
 /**
- * A store of reserved payment nonces.
+ * The in-memory nonce store, and the shared store contract (re-exported).
  *
  * `reserve` is the load-bearing primitive and MUST be atomic: the check and the set
  * are never split by an `await`. The in-memory store below is atomic by construction
  * (a synchronous body runs to completion); a distributed store must use a genuine
  * atomic compare-and-set (a Durable Object, Redis `SET .. NX`, a unique constraint).
- * Get-then-put stores (Workers KV, S3) reopen the race and are a later chapter.
+ * Get-then-put stores (Workers KV, S3) reopen the race and are not safe here.
  *
  * `reserve` and `release` return a `Result`, so a store failure is a value the guard
  * turns into a fail-closed deny. Replay keys on the nonce, never the signature, which
  * is what makes it immune to signature malleability. Full rationale: docs/hardening.md.
+ * The contract itself lives in `store-types.ts` (Node-free, so non-Node adapters can
+ * import it); this module owns the Node in-memory implementation.
  */
-import { randomUUID } from "node:crypto";
-import { type GuardError, guardError } from "./error.js";
+import { guardError } from "./error.js";
 import { err, ok, type Result } from "./result.js";
+import type {
+  NonceStore,
+  ReleaseOutcome,
+  ReserveError,
+  ReserveOutcome,
+  ReserveParams,
+  StoreError,
+} from "./store-types.js";
 
-/**
- * The outcome of a reserve. `reserved` carries a fencing `token`: only its holder can
- * later `release`, so releasing an in-flight hold is not a griefing primitive.
- */
-export type ReserveOutcome =
-  | { readonly status: "reserved"; readonly token: string }
-  | { readonly status: "already-reserved"; readonly boundResource: string }
-  | { readonly status: "expired" };
-
-/** The outcome of a release. `not-held` means no matching token: nothing was freed. */
-export type ReleaseOutcome = { readonly status: "released" } | { readonly status: "not-held" };
-
-/** The only error a `release` reports, and what the guard collapses any unrecognized store failure to (fail closed). */
-export type StoreError = GuardError<"store-unavailable">;
-
-/** What a `reserve` can report: a `StoreError`, or the store being at its hard `maxEntries` capacity. Branch on `code`. */
-export type ReserveError = StoreError | GuardError<"store-at-capacity">;
-
-export interface ReserveParams {
-  /**
-   * The payment's nonce, unique within its (chain, asset, payer) scope; the x402 exact
-   * scheme uses a random 32-byte value. The guard folds this to a canonical key by
-   * default (canonical.ts); a direct store caller must pre-fold it.
-   */
-  readonly nonce: string;
-  /**
-   * The resource this payment is spent on, as a canonical key. Substitution compares
-   * this to the resource the nonce first bound to, so equal resources must produce an
-   * equal string. The guard canonicalizes URL casing by default.
-   */
-  readonly resource: string;
-  /**
-   * Unix seconds, the authorization's `validBefore`. Used two ways: `reserve` refuses
-   * an authorization whose window has closed (`expiresAt <= now`), and past this time a
-   * live reservation may be evicted (unreplayable on-chain, so dropping it is lossless).
-   */
-  readonly expiresAt: number;
-}
-
-/** A store of reserved payment nonces. `reserve` must be atomic. */
-export interface NonceStore {
-  reserve(params: ReserveParams): Promise<Result<ReserveOutcome, ReserveError>>;
-  /**
-   * Release a reservation so the nonce can be reserved again (e.g. after a failed or
-   * reorged settlement, so a legitimate payer can retry). Releases only if `token`
-   * matches the one `reserve` returned (fencing); otherwise frees nothing (`not-held`).
-   */
-  release(nonce: string, token: string): Promise<Result<ReleaseOutcome, StoreError>>;
-}
+export type {
+  NonceStore,
+  ReleaseOutcome,
+  ReserveError,
+  ReserveOutcome,
+  ReserveParams,
+  StoreError,
+} from "./store-types.js";
 
 interface Entry {
   readonly resource: string;
@@ -142,7 +110,7 @@ export class MemoryNonceStore implements NonceStore {
     if (existing === undefined && this.reserved.size >= this.maxEntries) {
       return Promise.resolve(err(guardError("store-at-capacity", "nonce store at capacity")));
     }
-    const token = randomUUID();
+    const token = crypto.randomUUID();
     this.reserved.set(nonce, { resource, expiresAt, token });
     return Promise.resolve(ok({ status: "reserved", token }));
   }

@@ -10,7 +10,9 @@ export default defineConfig({
       // harness under test/ is scaffolding, not published.
       provider: "v8",
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts"],
+      // store-types.ts is types only (no runtime code); src/cloudflare runs in
+      // workerd and is covered by the Miniflare test, not this node run.
+      exclude: ["src/**/*.test.ts", "src/store-types.ts", "src/cloudflare/**"],
       reporter: ["text"],
       thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
