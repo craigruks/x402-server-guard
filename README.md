@@ -116,10 +116,12 @@ All four enumerated attack classes are covered; see the table below.
 
 ## Design principles
 
-- **Zero runtime dependencies.** The core relies only on Node's built-in `crypto`.
-  Every dependency is attack surface; a hardening library should have as little of
-  it as possible. Independent signature verification (which needs cryptographic
-  primitives) will ship later behind an optional adapter, never in the core path.
+- **Zero runtime dependencies.** The core uses only the Web Platform `crypto` global
+  (`crypto.randomUUID`), present on Node 22+, Cloudflare Workers, and Deno, so the guard
+  runs in any modern runtime without a polyfill. Every dependency is attack surface; a
+  hardening library should have as little of it as possible. Independent signature
+  verification (which needs cryptographic primitives) will ship later behind an optional
+  adapter, never in the core path.
 - **Installs clean under npm v12's hardened defaults**: no lifecycle scripts, no
   `npm approve-scripts` step, nothing to allow.
 - **Small enough to read.** Source files are capped so the whole library can be
@@ -140,7 +142,7 @@ is in [`docs/hardening.md`](./docs/hardening.md).
 | --- | --- |
 | Duplicate-settlement race | done |
 | Payment replay | done (same nonce reservation) |
-| Cross-resource substitution | done |
+| Cross-resource substitution | done (same nonce reservation, distinct reason) |
 | Grant-before-finality (k-confirmations) | done |
 | Cache leakage of paid content | done |
 

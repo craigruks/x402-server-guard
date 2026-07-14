@@ -4,7 +4,7 @@ sidebar:
   label: Race & replay
 ---
 
-Ships in PR #16. Research: Five Attacks (Attack II), also Free-Riding (I4).
+Research: Five Attacks (Attack II), also Free-Riding (I4).
 
 ## The attack in plain terms
 

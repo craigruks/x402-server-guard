@@ -4,8 +4,7 @@ sidebar:
   label: Finality
 ---
 
-Ships in PR #19. Research: Five Attacks (Attack I-A, revert-grant under optimistic
-execution).
+Research: Five Attacks (Attack I-A, revert-grant under optimistic execution).
 
 ## The attack in plain terms
 

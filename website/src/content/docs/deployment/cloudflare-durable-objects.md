@@ -73,11 +73,15 @@ still fails closed.
   a bare `DurableObjectNamespace`. Without the generic the stub has no `reserve`/`release`
   methods and the adapter will not typecheck against it.
 - **Storage is not capped the way the memory store is.** The in-memory store enforces a
-  hard `maxEntries` backpressure limit; per-nonce Durable Objects cannot share one
-  counter, so there is no equivalent cap here. Each reserved nonce holds one small entry
-  until its `validBefore`, when a Durable Object alarm reclaims it. Keep the payment
-  window (`validBefore`) short so a flood of signed authorizations self-clears quickly
-  rather than accumulating objects until a far-future expiry.
+  hard `maxEntries` backpressure limit; per-nonce Durable Objects cannot share one counter
+  (that would reintroduce the global bottleneck this design removes), so there is no
+  equivalent cap here. Each reserved nonce holds one small entry until its `validBefore`,
+  when a Durable Object alarm reclaims it. A payer who signs many authorizations with a
+  far-future `validBefore` can accumulate objects until that expiry. The real bound is
+  **rate limiting upstream of the reserve** (per payer or per IP); the payer controls
+  `validBefore`, so a short window is not something you can rely on. Reservation runs after
+  the facilitator verifies the signature, so only authenticated payers reach it, not
+  anonymous traffic.
 - **Requires a recent compatibility date.** The adapter uses Durable Object RPC methods
   and SQLite-backed storage; set a `compatibility_date` new enough to support them.
 - **One nonce per object is deliberate.** It gives per-nonce atomicity without a global
