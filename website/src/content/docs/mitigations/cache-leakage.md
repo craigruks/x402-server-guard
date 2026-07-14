@@ -57,7 +57,7 @@ worth knowing, because for large static content they can be better:
 - **Capability URLs.** Serve the content at an unguessable path like
   `/download/{long-random-token}`, the way S3 presigned URLs and "anyone with the
   link" document shares work. Now the response *can* be cached, even publicly, because
-  the cache keys on the token and only ever serves someone who already holds it. Great
+  the cache is keyed on the token and only ever serves someone who already holds it. Great
   for a large file behind a CDN. The catch: the URL becomes a bearer credential, so it
   leaks through `Referer` headers, logs, and browser history; the token must be long
   and random; and once a CDN caches it you cannot revoke it before its TTL.

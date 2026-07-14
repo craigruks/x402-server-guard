@@ -173,7 +173,7 @@ The default in-memory store is not: each isolate has its own map, so it protects
 process only. For multi-isolate deploys the store is a pluggable contract: any backend
 with a native atomic compare-and-set satisfies it (Redis `SET NX`, a database unique
 constraint), while a plain get-then-put store like Workers KV does not, because the
-read-to-set gap reopens the race. We ship one worked backend, a Cloudflare Durable
+read-to-set gap reopens the race condition. We ship one such backend, a Cloudflare Durable
 Object store that routes each nonce to its own object. A Durable Object serves one request at a time and
 holds delivery of other events while a storage operation to the same object is in
 flight (input gating), so the reserve check-and-set is atomic with no lock. We prove it:

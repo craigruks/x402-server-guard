@@ -76,7 +76,7 @@ return grant(resource);
 > isolate holds its own map, so replay and race protection do not hold across
 > instances. For those deploys, pass a store backed by an atomic compare-and-set: a
 > Durable Object, Redis `SET NX`, or a database unique constraint (not a plain
-> get-then-put store like Workers KV, which reopens the race). Any backend that
+> get-then-put store like Workers KV, which reopens the race condition). Any backend that
 > implements the `NonceStore` contract works. One is built start to finish in the box, a
 > Cloudflare Durable Object adapter:
 > `import { createDurableObjectNonceStore } from "@craigruks/x402-server-guard/cloudflare"`

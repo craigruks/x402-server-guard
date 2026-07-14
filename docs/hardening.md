@@ -52,7 +52,7 @@ between "is this nonce free?" and "take it".
 
 ### Why we key on the nonce
 
-Replay protection keys on the EIP-3009 nonce, never on the signature bytes.
+Replay protection is keyed on the EIP-3009 nonce, never on the signature bytes.
 Established off-chain-signature systems do the same, because the nonce is the
 identity the signature authorizes, not the signature encoding:
 
@@ -74,9 +74,9 @@ This matters because common EIP-712 verifiers do not reject the high-s form:
 `recoverTypedSignature` validates the recovery id but not low-s, leaving that
 check to the caller. We sidestep the question by never keying on the signature.
 
-This immunity is joint with signature verification. The guard keys on the nonce
+This immunity is joint with signature verification. The guard is keyed on the nonce
 the facilitator authenticated, because verify runs before reserve; a caller that
-reserves without first verifying keys on an unauthenticated, attacker-chosen
+reserves without first verifying is keyed on an unauthenticated, attacker-chosen
 nonce. And a distinct nonce is a distinct authorization that settles its own
 on-chain transfer: paying again with a fresh nonce is paying twice, not a
 double-spend, and is correctly out of scope.
@@ -88,7 +88,7 @@ completion. A store shared across serverless isolates must use a native atomic
 compare-and-set: a Durable Object, Redis `SET ... NX`, or a database unique
 constraint (permit2 and CoW both rely on exactly this kind of atomic write).
 Plain get-then-put stores (Cloudflare Workers KV, S3) are not sufficient: with no
-compare-and-set, an `await` sits in the check-to-set gap and reopens the race. A
+compare-and-set, an `await` sits in the check-to-set gap and reopens the race condition. A
 Cloudflare Durable Object adapter ships in the box (`createDurableObjectNonceStore`
 on the `/cloudflare` subpath), which routes each nonce to its own object and gets the
 atomic check-and-set from Durable Object input gating; other backends (Redis, a
@@ -135,7 +135,7 @@ The store evicts expired reservations, but `expiresAt` is the attacker-signed
 `validBefore`, so the sweep alone does not bound memory: a flood of far-future
 authorizations is retained. A hard `maxEntries` cap makes a fresh reservation
 past the ceiling fail closed, rather than growing without bound or evicting a
-live entry (which would reopen the race). Peak retention is roughly
+live entry (which would reopen the race condition). Peak retention is roughly
 `min(maxEntries, request_rate * validBefore_horizon)`; there is no claim of an
 unconditional bound.
 
@@ -206,7 +206,7 @@ of being locked out until the window closes.
 its own hold, so it is not a griefing primitive an attacker can aim at another
 payer's in-flight reservation. Not calling `release` is safe: the reservation
 simply expires with the authorization. Freeing a hold whose settlement did not
-stick does not reopen the race, because the payment was never granted; releasing a
+stick does not reopen the race condition, because the payment was never granted; releasing a
 successful reservation is what would, and the flow never does that.
 
 On a single-sequencer L2 like Base (x402's usual home) reorgs are rare and hard to
@@ -220,7 +220,7 @@ Source: [arXiv:2605.11781](https://arxiv.org/abs/2605.11781), Attack III (HTTP /
 proxy-level handling: a paid response cached by an intermediary and served to
 unpaid clients).
 
-A shared cache (CDN or reverse proxy) in front of the resource server keys on the
+A shared cache (CDN or reverse proxy) in front of the resource server is keyed on the
 request URL and knows nothing about payment. If a paid 200 is cacheable, the cache
 stores it and serves it to the next caller for that URL, paid or not: the content
 leaks for free. The reference x402 adapters set no cache directive on the paid
@@ -244,7 +244,7 @@ than the guard's default:
 
 - **Capability URLs.** Serve the content at an unguessable path (`/download/{token}`,
   as S3 presigned URLs and "anyone with the link" document shares do). The response
-  is cacheable, even publicly, because the cache keys on the token and only ever
+  is cacheable, even publicly, because the cache is keyed on the token and only ever
   serves a holder of it. This is the right call for large, static, identical-for-every
   -payer content behind a CDN. The cost is a different security model: the URL becomes
   a bearer credential, so it leaks through `Referer` headers, logs, and browser

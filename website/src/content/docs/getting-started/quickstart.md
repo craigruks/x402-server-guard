@@ -25,7 +25,7 @@ instances. For those deploys you must pass a store backed by an atomic compare-a
 a Durable Object, Redis `SET NX`, or a database unique constraint. Any backend that
 implements the `NonceStore` contract with a genuine atomic reserve works. A plain
 get-then-put store (Workers KV, S3) does not, because the gap between the read and the
-write reopens the race. We ship one such backend built start to finish, the
+write reopens the race condition. We ship one such backend built start to finish, the
 [Cloudflare Durable Object adapter](/x402-server-guard/deployment/cloudflare-durable-objects/).
 :::
 

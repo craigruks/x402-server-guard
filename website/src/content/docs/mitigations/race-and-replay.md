@@ -104,7 +104,7 @@ valid and still from the same signer (this is called signature malleability). If
 de-duplicated on the signature bytes, an attacker could submit the original and its
 rewritten twin and slip a second request through. The nonce lives inside the signed
 message and is identical for both forms, so keying on the nonce makes the twin
-collide and get denied. That is why the store keys on the nonce.
+collide and get denied. That is why the store is keyed on the nonce.
 
 ## How this compares to the real x402 reference
 
