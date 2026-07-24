@@ -63,6 +63,11 @@ release bump:
     npm version {{bump}}
     git push --follow-tags
 
-# Show exactly what a publish would include, without publishing.
+# Show exactly what a publish would include, without publishing, then run the
+# package checks. The two are separate on purpose: `npm publish --dry-run` sets
+# npm_config_dry_run, the nested `npm pack` inside `attw --pack` inherits it and
+# writes no tarball, so attw fails on a file that was never created. A real
+# publish does not set that flag, so prepublishOnly runs both correctly.
 publish-dry:
-    npm publish --dry-run
+    npm publish --dry-run --ignore-scripts
+    npm run check:pkg
