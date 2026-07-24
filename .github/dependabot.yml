@@ -8,6 +8,29 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+  # The docs site and the on-chain e2e harness carry their own lockfiles. Without
+  # an entry here they get security updates only, never routine ones, so a
+  # transitive dependency can sit unpatched until it becomes an advisory.
+  # Neither ships to consumers, so each is grouped into a single PR to keep the
+  # noise down.
+  - package-ecosystem: npm
+    directory: "/website"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      website:
+        patterns:
+          - "*"
+  - package-ecosystem: npm
+    directory: "/e2e"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      e2e:
+        patterns:
+          - "*"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
