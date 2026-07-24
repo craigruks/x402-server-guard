@@ -188,6 +188,14 @@ Dev tooling lives in `package.json` scripts (`npm run …`); the [`justfile`](./
 is the discoverable index for repo operations that aren't npm: supply-chain
 checks, CI, release prep. Run `just` to see them all.
 
+## Acknowledgments
+
+Shengchen Ling, an author of "Free-Riding the Agentic Web: A Systematic Security
+Analysis of x402 Payments" ([arXiv:2605.30998](https://arxiv.org/abs/2605.30998)),
+reviewed how this library maps to the paper's flaw classes and invariants and
+confirmed it aligns with the paper's intended interpretation. This is not an
+audit or endorsement of the implementation.
+
 ## License
 
 [MIT](./LICENSE) © Craig Ruks

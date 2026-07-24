@@ -43,6 +43,13 @@ replay, and cross-resource substitution all reduce to it), holding to finality, 
 cache directives. It is not audited and is not a security guarantee. It cannot make an insecure endpoint safe on its own, and anything not
 listed here is out of scope. See [`SECURITY.md`](../SECURITY.md).
 
+## Confirmation
+
+Shengchen Ling, an author of [Free-Riding], reviewed how this library maps to the
+paper's flaw classes and invariants and confirmed it aligns with the paper's
+intended interpretation. This is not an audit or endorsement of the
+implementation.
+
 ## References
 
 - **Five Attacks**: Zelin Li, Qin Wang, Zhipeng Wang. "Five Attacks on x402
