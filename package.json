@@ -1,6 +1,6 @@
 {
   "name": "@craigruks/x402-server-guard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Server-side hardening middleware for x402 payment endpoints. Mitigations for settlement races, replay, cross-resource substitution, and cache leakage. Not a security guarantee.",
   "keywords": [
     "x402",
