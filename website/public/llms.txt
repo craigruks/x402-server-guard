@@ -1,0 +1,83 @@
+# x402-server-guard (llms.txt)
+# Generated 2026-07-24 from commit 68827a4. Regenerate after docs changes.
+
+> Server-side hardening middleware for x402 payment endpoints.
+
+License: MIT
+Install: npm i @craigruks/x402-server-guard
+Source: https://github.com/craigruks/x402-server-guard
+Docs: https://craigruks.github.io/x402-server-guard/
+
+This library is not audited and is not a security guarantee. It mitigates these specific attack classes. It cannot make an insecure endpoint safe on its own.
+
+## Rules for correct integration
+
+- `reserve` is the load-bearing primitive and MUST be atomic: the check and the
+  set are never split by an `await`. A distributed store must use a genuine
+  atomic compare-and-set (a Durable Object, Redis `SET .. NX`, a unique
+  constraint). Get-then-put stores (Workers KV, S3) reopen the race condition and
+  are not safe here. (src/nonce-store.ts)
+- Verify BEFORE calling; the nonce reserved must be the one the facilitator
+  authenticated. Replay is keyed on the nonce, never the signature, which is what
+  makes it immune to signature malleability. (src/protect.ts, src/nonce-store.ts)
+- On a grant the caller MUST apply the returned `cacheControl` to the response:
+  that header is the cache-leak mitigation, and `protect` cannot set it across
+  an unknown framework. (src/protect.ts)
+- It does not scope by chain or asset, so a store shared across several chains or
+  assets should namespace the nonce per (chain, asset) itself to keep two
+  distinct payments from colliding. (src/store-types.ts)
+- Finality is a required discriminant, not an optional callback, so granting at
+  zero confirmations is a decision made at the call site, never an implicit
+  default for a security toggle. (src/protect.ts)
+- The decision is a value (`Reservation`), never a throw, so a stray
+  `try/catch` cannot turn a deny into an accidental grant; a store failure
+  fails closed (denies, never grants). (src/guard.ts)
+
+## Taking the dependency (or not)
+
+This library has none at runtime, and the core is small enough to read in one
+sitting. If you would rather not add a dependency at all, lift the primitives you
+use straight into your own code: the reservation, the finality hold, and the
+cache directives are each a small, self-contained file, and a coding agent can
+pull over the parts you need in a few minutes. That is a supported way to use
+this. (README.md, MIT license)
+
+## API
+
+Main entry, `@craigruks/x402-server-guard`:
+
+- `createGuard`, `protect`, `paidResponseCacheDirectives`,
+  `isStorableBySharedCache`, `createMemoryNonceStore`, `canonicalNonce`,
+  `canonicalResource`, `guardError`, `ok`, `err`, `tryCatch`,
+  `tryCatchAsync`, `VERSION`
+
+Subpath, `@craigruks/x402-server-guard/cloudflare`:
+
+- `NonceReservationDO`, `createDurableObjectNonceStore`
+
+The secure flow as one call: reserve, settle, confirm, grant. (src/protect.ts)
+
+Deny reasons carried on `reason.code`:
+`nonce-already-reserved`, `nonce-resource-mismatch`, `nonce-expired`,
+`store-unavailable`, `store-at-capacity`. `ProtectDecision` adds
+`settle-failed` and `not-final`.
+
+## Getting started
+- [Understanding x402](https://craigruks.github.io/x402-server-guard/getting-started/understanding-x402/): Enough of the protocol to follow the attacks.
+- [Quickstart](https://craigruks.github.io/x402-server-guard/getting-started/quickstart/): Install the guard and protect a paid route end to end with protect().
+
+## Mitigations
+- [Duplicate-settlement race and replay](https://craigruks.github.io/x402-server-guard/mitigations/race-and-replay/): Fire the same payment many times at once and get many resources for one payment. Fix: reserve the nonce before delivering.
+- [Cross-resource substitution](https://craigruks.github.io/x402-server-guard/mitigations/substitution/): Spend a payment meant for resource A at resource B. Fix: bind the nonce to the served resource.
+- [Grant-before-finality](https://craigruks.github.io/x402-server-guard/mitigations/finality/): Get the resource, then have the payment reversed by a chain reorg. Fix: hold to k confirmations, release on failure.
+- [Cache leakage of paid content](https://craigruks.github.io/x402-server-guard/mitigations/cache-leakage/): A shared cache serves the paid response to unpaid clients. Fix: no-store, private on paid responses.
+
+## Deployment
+- [Cloudflare Durable Objects](https://craigruks.github.io/x402-server-guard/deployment/cloudflare-durable-objects/): Back the guard with a Durable Object so replay protection holds across isolates.
+
+## Reference
+- [Coverage map](https://craigruks.github.io/x402-server-guard/reference/coverage-map/): Each attack mapped to its mitigation and proving test.
+- [Hardening rationale and sources](https://craigruks.github.io/x402-server-guard/reference/hardening/): Why each mitigation works, with sources.
+- [Objection handling](https://craigruks.github.io/x402-server-guard/reference/objection-handling/): The hardest questions about the guard, answered honestly.
+- [Review methodology and limits](https://craigruks.github.io/x402-server-guard/reference/review/): How the guard is reviewed, and its limits.
+
