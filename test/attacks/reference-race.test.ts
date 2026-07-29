@@ -3,7 +3,7 @@
  *
  * The other attack suites fire at `BaselineResourceServer`, a faithful but
  * hand-written stand-in. This one drives the actual `x402HTTPResourceServer`
- * from `@x402/core` (v2.18.0), so the duplicate-settlement race is proven
+ * from `@x402/core` (v2.20.0), so the duplicate-settlement race is proven
  * against the class integrators ship, not a re-creation of it.
  *
  * Why the race lands: `processHTTPRequest` verifies the payment and returns a
