@@ -3,6 +3,7 @@
 **Server-side hardening middleware for [x402](https://github.com/coinbase/x402)
 payment endpoints.**
 
+[![npm](https://img.shields.io/npm/v/@craigruks/x402-server-guard)](https://www.npmjs.com/package/@craigruks/x402-server-guard)
 [![CI](https://github.com/craigruks/x402-server-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/craigruks/x402-server-guard/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
