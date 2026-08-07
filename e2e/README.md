@@ -23,6 +23,12 @@ mise install     # anvil (via foundry) + node
 npm install
 ```
 
+`package.json` overrides `tar` to 7.5.22. prool declares `tar` at an exact 7.2.0
+and never imports it, so `npm update` cannot move it and the advisories against
+7.2.0 are unreachable from this harness. The override exists to keep the alert
+list empty, so that a real advisory here is not lost among eight unreachable
+ones. Drop it once prool stops depending on tar.
+
 ## Run the fork harness (no secrets)
 
 ```sh
