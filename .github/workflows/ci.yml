@@ -40,3 +40,10 @@ jobs:
       - run: node scripts/smoke-dist.mjs # exercise the compiled dist/ a consumer imports
       - run: npm run example # the documented usage example throws if it ever grants more than once
       - run: npm run example:hono # the Hono binding example, run in-process, throws on wrong behavior
+      # The e2e harness carries its own lockfile and toolchain, so its types are not
+      # covered above. Typecheck only: the fork tests need Anvil and live to
+      # e2e-fork.yml. Without this the harness rots unnoticed (it reached 21 errors).
+      - run: npm ci
+        working-directory: e2e
+      - run: npm run typecheck
+        working-directory: e2e

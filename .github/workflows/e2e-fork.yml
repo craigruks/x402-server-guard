@@ -1,0 +1,66 @@
+name: e2e fork
+
+# Runs the on-chain attack reproductions in e2e/src/fork against an Anvil fork of
+# Base Sepolia. These back the claim in docs/coverage-map.md that the threat model
+# reproduces against real USDC and real EIP-3009, so they need to keep passing.
+#
+# Kept out of ci.yml because it needs Foundry and a live RPC to fork from, and a
+# gate that depends on a third-party endpoint should not block merges. Not on the
+# required-checks list for that reason: read it, do not merge through a red run
+# without looking. The hosted facilitator run (npm run test:hosted) stays manual;
+# it spends testnet funds against infrastructure we do not operate.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "e2e/**"
+      - ".github/workflows/e2e-fork.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "e2e/**"
+      - ".github/workflows/e2e-fork.yml"
+  # The fork is pinned to a block, so a scheduled run catches rot in the toolchain
+  # and the upstream RPC rather than drift in chain state.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-fork-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fork:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      # Actions pinned to full commit SHAs (supply-chain hardening); Dependabot
+      # bumps both the SHA and the version comment.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      # Version tracks e2e/mise.toml so CI and a local run use the same Anvil.
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.7.1
+      - run: npm ci
+      - run: npm run typecheck
+      # BASE_SEPOLIA_RPC is optional. The fallback is spelled here rather than left
+      # to global-setup.ts, whose `??` would not catch the empty string an unset
+      # secret expands to. The public endpoint rate-limits under CI, so set the
+      # secret to make runs reliable. No wallet secret is needed: vitest.config.ts
+      # supplies an Anvil dev key and viem-deal funds it on the fork.
+      - run: npm run test:fork
+        env:
+          BASE_SEPOLIA_RPC: ${{ secrets.BASE_SEPOLIA_RPC || 'https://sepolia.base.org' }}
