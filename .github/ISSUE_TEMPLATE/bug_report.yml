@@ -1,0 +1,69 @@
+name: Bug report
+description: Something behaves differently from what the docs say.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Not for vulnerabilities. If the guard fails to stop an attack it claims
+        to mitigate, close this and use
+        [private reporting](https://github.com/craigruks/x402-server-guard/security/advisories/new)
+        instead. Filing it here discloses it.
+
+  - type: checkboxes
+    id: not-a-vulnerability
+    attributes:
+      label: Confirm
+      options:
+        - label: This is not a security vulnerability.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version of `@craigruks/x402-server-guard` you are running.
+      placeholder: 0.1.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - Node
+        - Cloudflare Workers
+        - Deno
+        - Bun
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-and-actual
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead. One of each.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >-
+        The smallest code that shows it. A failing test against the repo is
+        ideal. Include how you configured the guard, with any keys or addresses
+        removed.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Facilitator, chain, store implementation, or whatever else matters.
+    validations:
+      required: false
