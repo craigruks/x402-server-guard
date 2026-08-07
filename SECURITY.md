@@ -47,7 +47,9 @@ published under a separate tag.
 
 Please report suspected vulnerabilities **privately** via GitHub Security
 Advisories ("Report a vulnerability" on the repository's Security tab), not
-through public issues.
+through public issues. This covers any case where the guard fails to stop an
+attack it claims to mitigate. A public issue that describes a working attack
+discloses it before a fix exists.
 
 Include a description, affected version, and a reproduction if possible. Expect an
 acknowledgement within 72 hours. Please allow a reasonable window for a fix before
