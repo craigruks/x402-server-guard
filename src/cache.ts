@@ -3,7 +3,8 @@
  *
  * A shared cache (CDN or reverse proxy) is keyed on the URL and knows nothing about
  * payment, so a cacheable paid 200 can be stored and served to the next caller, paid
- * or not. The reference x402 adapters set no cache directive, leaving that door open.
+ * or not. The reference x402 adapters send `private` on the paid 200 as of
+ * `@x402/core` 2.21.0, and set no directive at all before it; neither sets `Vary`.
  *
  * The mitigation is a response directive, not a decision about a nonce, so it lives
  * here as a small pure helper the server or adapter applies to every paid response.

@@ -74,7 +74,7 @@
     "@cloudflare/workers-types": "5.20260729.1",
     "@types/node": "26.1.2",
     "@vitest/coverage-v8": "4.1.10",
-    "@x402/core": "2.20.0",
+    "@x402/core": "2.21.0",
     "esbuild": "0.28.1",
     "hono": "4.13.0",
     "miniflare": "4.20260722.1",
