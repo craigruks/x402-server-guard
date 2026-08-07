@@ -1,0 +1,13 @@
+# Blank issues are disabled so that a suspected vulnerability cannot be filed as
+# a public issue by default. The first contact link below is the reason this file
+# exists: a public issue describing a live settlement race is a disclosure.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/craigruks/x402-server-guard/security/advisories/new
+    about: >-
+      Anything where the guard fails to stop an attack it claims to mitigate.
+      This goes through a private advisory, never a public issue. See SECURITY.md.
+  - name: Documentation
+    url: https://craigruks.github.io/x402-server-guard/
+    about: The threat model, the coverage map, and the rationale for each mitigation.

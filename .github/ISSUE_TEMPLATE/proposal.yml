@@ -1,0 +1,54 @@
+name: Proposal
+description: A new mitigation, a framework binding, or a change to the public API.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Open this before writing the code. The scope is the threat model in
+        [docs/coverage-map.md](https://github.com/craigruks/x402-server-guard/blob/main/docs/coverage-map.md),
+        and work outside it needs a conversation first. Pre-1.0 API surface is
+        cheap to add and expensive to remove.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - A mitigation for an attack the library does not cover
+        - A binding for a framework the library does not cover
+        - A change to the existing public API
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What goes wrong today, for whom. If this is an attack, say how it lands
+        against a server that already uses this library correctly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What you have in mind
+      description: >-
+        Rough shape is fine. If it changes the public API, show the call site you
+        want to write.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Prior art
+      description: >-
+        Published research, a CVE, or how another system solves this. Optional,
+        but it is the fastest way to make the case.
+    validations:
+      required: false
