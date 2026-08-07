@@ -14,7 +14,7 @@ are excellent:
   https://docs.x402.org/getting-started/quickstart-for-sellers
 - Quickstart for buyers (the client side):
   https://docs.x402.org/getting-started/quickstart-for-buyers
-- The protocol and reference SDKs: https://github.com/coinbase/x402
+- The protocol and reference SDKs: https://github.com/x402-foundation/x402
 
 ## What x402 is
 

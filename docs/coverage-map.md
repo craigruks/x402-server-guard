@@ -32,8 +32,8 @@ The mechanism behind each mitigation, why it is shaped that way, and the
 cross-references to how established off-chain-signature systems (Uniswap permit2,
 CoW Protocol, MetaMask `eth-sig-util`, Hyperliquid) handle the same problems are
 in [`docs/hardening.md`](./hardening.md). The surveyed state of the reference
-`coinbase/x402` server (which of these holes it leaves open) is documented there
-as the reason this library exists.
+`x402-foundation/x402` server (which of these holes it leaves open) is documented
+there as the reason this library exists.
 
 ## Scope boundary
 

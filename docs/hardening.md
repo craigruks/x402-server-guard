@@ -27,21 +27,26 @@ The race and substitution appear in both; the two we mitigate that appear in onl
 one paper (finality and cache) both come from Five Attacks, not Free-Riding, which
 does not analyze either.
 
-The reference these attacks apply to is Coinbase's official
-[`coinbase/x402`](https://github.com/coinbase/x402) TypeScript resource server. As
-surveyed at `main` commit `dd927a2`:
+The reference these attacks apply to is the official
+[`x402-foundation/x402`](https://github.com/x402-foundation/x402) TypeScript resource
+server. (The repository moved out of the `coinbase` org; `coinbase/x402` is now a fork
+of it.) Surveyed against `@x402/core` 2.21.0, the version the `e2e/` harness pins and
+reproduces against:
 
 - Replay defense is on-chain only. The EVM facilitator reads
   `authorizationState(from, nonce)` at verify and parses the transfer revert at
   settle (the `exact` EIP-3009 mechanism under
-  [`typescript/`](https://github.com/coinbase/x402/tree/dd927a2/typescript)).
+  [`typescript/`](https://github.com/x402-foundation/x402/tree/main/typescript)).
   Nothing reserves the nonce off-chain between verify and settle, so N concurrent
   requests carrying one authorization all pass verify before the chain serializes
   them: a time-of-check/time-of-use race.
 - The signed authorization binds `{from, to, value, validAfter, validBefore,
   nonce}` and the token contract (via the EIP-712 domain), but not the resource.
   A signature valid for route A is valid for route B at the same price and payTo.
-- No adapter sets `Cache-Control` or `Vary` on the 402 or the paid 200.
+- The 402 carries `Cache-Control: no-store` and the paid 200 carries `private`, both
+  added in [#2990](https://github.com/x402-foundation/x402/pull/2990) and released in
+  2.21.0. Before that release no adapter set any cache directive. Neither response
+  sets `Vary`.
 
 ## Race and replay
 
@@ -223,9 +228,13 @@ unpaid clients).
 A shared cache (CDN or reverse proxy) in front of the resource server is keyed on the
 request URL and knows nothing about payment. If a paid 200 is cacheable, the cache
 stores it and serves it to the next caller for that URL, paid or not: the content
-leaks for free. The reference x402 adapters set no cache directive on the paid
-response (surveyed above: no `Cache-Control`, no `Vary`), so a shared cache is free
-to store it.
+leaks for free. Before `@x402/core` 2.21.0 the reference adapters set no cache
+directive at all, so a shared cache was free to store the paid 200. They now send
+`private` on it (surveyed above), which closes that path against any cache that
+honors the directive. Two gaps remain, and they are what the guard's directives
+cover: `private` permits a non-shared cache to store the body, where `no-store`
+permits nobody; and no `Vary` is set, so a cache that stores in spite of the
+directive is not keyed by payer.
 
 Unlike the other three, this is not a decision about a nonce; it is a response
 directive. `paidResponseCacheDirectives()` returns `Cache-Control: no-store,
