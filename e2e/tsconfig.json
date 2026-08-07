@@ -10,7 +10,11 @@
     "skipLibCheck": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "noEmit": true
+    "noEmit": true,
+
+    // TypeScript 7 does not pull in node_modules/@types automatically here, so the
+    // Node globals this harness uses (process, console) need an explicit entry.
+    "types": ["node"]
   },
   "include": ["src"]
 }
