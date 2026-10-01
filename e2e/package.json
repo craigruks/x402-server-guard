@@ -22,7 +22,7 @@
     "tsx": "4.23.1",
     "typescript": "7.0.2",
     "viem-deal": "2.0.4",
-    "vitest": "4.1.10"
+    "vitest": "5.0.3"
   },
   "overrides": {
     "tar": "7.5.22"
