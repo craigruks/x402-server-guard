@@ -4,7 +4,8 @@
  * A shared cache (CDN or reverse proxy) is keyed on the URL and knows nothing about
  * payment, so a cacheable paid 200 can be stored and served to the next caller, paid
  * or not. The reference x402 adapters send `private` on the paid 200 as of
- * `@x402/core` 2.21.0, and set no directive at all before it; neither sets `Vary`.
+ * `@x402/core` 2.21.0 (unchanged through 2.29.0), and set no directive at all before
+ * it; neither sets `Vary`.
  *
  * The mitigation is a response directive, not a decision about a nonce, so it lives
  * here as a small pure helper the server or adapter applies to every paid response.
@@ -23,7 +24,9 @@ export interface CacheDirectives {
 export interface CacheDirectivesOptions {
   /**
    * The request header the payment travels in, added to `Vary` so a cache that
-   * stores despite `no-store` still keys by payer. Defaults to `X-PAYMENT`.
+   * stores despite `no-store` still keys by payer. Defaults to `X-PAYMENT`, the x402
+   * v1 header; an x402 v2 client sends `PAYMENT-SIGNATURE`, so pass that behind a v2
+   * server.
    */
   readonly paymentHeader?: string;
 }

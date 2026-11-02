@@ -30,23 +30,92 @@ does not analyze either.
 The reference these attacks apply to is the official
 [`x402-foundation/x402`](https://github.com/x402-foundation/x402) TypeScript resource
 server. (The repository moved out of the `coinbase` org; `coinbase/x402` is now a fork
-of it.) Surveyed against `@x402/core` 2.21.0, the version the `e2e/` harness pins and
-reproduces against:
+of it.) Surveyed against `@x402/core` 2.29.0 (tag commit `e4a0868`), the version the
+root and the `e2e/` harness pin and reproduce against. It was last surveyed at 2.21.0
+and re-checked commit by commit for this version. File links below are pinned to
+that tag.
 
-- Replay defense is on-chain only. The EVM facilitator reads
+- Replay defense is on-chain only in the default flow. The EVM facilitator reads
   `authorizationState(from, nonce)` at verify and parses the transfer revert at
   settle (the `exact` EIP-3009 mechanism under
   [`typescript/`](https://github.com/x402-foundation/x402/tree/main/typescript)).
   Nothing reserves the nonce off-chain between verify and settle, so N concurrent
   requests carrying one authorization all pass verify before the chain serializes
   them: a time-of-check/time-of-use race.
+- Since 2.22.0 a scheme can declare payment flows
+  ([#3053](https://github.com/x402-foundation/x402/pull/3053)). The opt-in `upfront`
+  flow settles before the handler runs
+  ([`x402HTTPResourceServer.ts:720`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/src/http/x402HTTPResourceServer.ts#L720)),
+  so of N concurrent requests only the one whose settlement wins reaches the handler.
+  `ExactEvmScheme` offers it for EIP-3009 and Permit2 but defaults to `authorization`,
+  which is verify, then handler, then settle
+  ([`exact/server/scheme.ts:20`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/mechanisms/evm/src/exact/server/scheme.ts#L20)).
+  `upfront` gives up the optimistic path: every request waits for an on-chain
+  settlement before it is served.
+- The official adapters withhold the body when settlement fails: Express buffers the
+  response, and Hono, Next, and Fastify settle before the body leaves. This was
+  already true at 2.21.0. In the default flow, a race therefore runs the handler N times and delivers
+  one body. A server that calls `processHTTPRequest` directly and delivers on
+  `payment-verified` delivers N bodies.
 - The signed authorization binds `{from, to, value, validAfter, validBefore,
   nonce}` and the token contract (via the EIP-712 domain), but not the resource.
   A signature valid for route A is valid for route B at the same price and payTo.
+  `PaymentRequirements` still has no resource field
+  ([`types/payments.ts:12`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/src/types/payments.ts#L12)).
+- Settlement success means one inclusion. The EVM settle path waits for a receipt
+  with no confirmation depth
+  ([`shared/settleReceipt.ts:60`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/mechanisms/evm/src/shared/settleReceipt.ts#L60)).
+  2.29.0 adds `AfterSettleAbortError`
+  ([#3994](https://github.com/x402-foundation/x402/pull/3994)): an `afterSettle` hook
+  can now turn a successful settlement into a failed one, so a hold to k confirmations
+  can live in that hook. Upstream ships the hook point, not the hold.
 - The 402 carries `Cache-Control: no-store` and the paid 200 carries `private`, both
   added in [#2990](https://github.com/x402-foundation/x402/pull/2990) and released in
-  2.21.0. Before that release no adapter set any cache directive. Neither response
-  sets `Vary`.
+  2.21.0, and unchanged through 2.29.0
+  ([`x402HTTPResourceServer.ts:31`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/src/http/x402HTTPResourceServer.ts#L31),
+  [`:40`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/src/http/x402HTTPResourceServer.ts#L40)). Before 2.21.0 no adapter
+  set any cache directive. Neither response sets `Vary`.
+
+### What upstream now covers
+
+None of the mitigations is fully covered by 2.29.0. The race, replay, and the reuse
+half of substitution are partly covered, but only behind the opt-in `upfront` flow.
+Cache leakage has been partly covered since 2.21.0. Grant-before-finality is not
+covered.
+
+| Mitigation | Upstream at 2.29.0 | Evidence |
+| --- | --- | --- |
+| Duplicate-settlement race | Partly: closed by the opt-in `upfront` flow (2.22.0), open in the default `authorization` flow | [#3053](https://github.com/x402-foundation/x402/pull/3053); [`test/attacks/reference-flows.test.ts`](../test/attacks/reference-flows.test.ts) (upfront: 1 of 20 admitted) and [`test/attacks/reference-race.test.ts`](../test/attacks/reference-race.test.ts) (default: 20 of 20) |
+| Payment replay | Partly, as for the race. A replay after settlement was already denied on-chain at verify; `upfront` closes the window before it | Same as above; the sequential control in `reference-race.test.ts` |
+| Cross-resource substitution | Partly. Under `upfront` the reuse is denied, as for the race. Nothing binds the payment to a resource or flags the mismatch | [`types/payments.ts:12`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/src/types/payments.ts#L12) |
+| Grant-before-finality | No. Success is one inclusion. 2.29.0 adds the hook a hold can use (`AfterSettleAbortError`) | [`shared/settleReceipt.ts:60`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/mechanisms/evm/src/shared/settleReceipt.ts#L60); [#3994](https://github.com/x402-foundation/x402/pull/3994); the afterSettle case in `reference-flows.test.ts` |
+| Cache leakage | Partly, since 2.21.0: `private` on the paid 200, `no-store` on the 402, no `Vary` | [#2990](https://github.com/x402-foundation/x402/pull/2990); [`x402HTTPResourceServer.ts:40`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/src/http/x402HTTPResourceServer.ts#L40) |
+| Store hardening (fail closed, `maxEntries`, folded keys, closing edge) | Not applicable: upstream keeps no off-chain nonce store. The facilitator still rejects an authorization within 6 seconds of `validBefore` | [`exact/facilitator/eip3009.ts:259`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/mechanisms/evm/src/exact/facilitator/eip3009.ts#L259) |
+
+### Upstream changes reviewed that move no mitigation
+
+Each was read in the diff between the 2.21.0 and 2.29.0 tags.
+
+- OPTIONS preflight no longer matches a route declared without a method
+  ([#3738](https://github.com/x402-foundation/x402/pull/3738)), and HEAD falls back to
+  the GET route ([#3796](https://github.com/x402-foundation/x402/pull/3796)). A gate
+  in `onProtectedRequest` does not run for OPTIONS.
+- The facilitator runs `afterVerify` hooks for an `isValid: false` result too
+  ([#3989](https://github.com/x402-foundation/x402/pull/3989)). A reservation placed
+  in a facilitator `afterVerify` hook must check `isValid` first.
+- `settleOnCancel` is called without a before-handler settle gate
+  ([#3993](https://github.com/x402-foundation/x402/pull/3993)). `ExactEvmScheme` does
+  not implement it.
+- Facilitator response bodies are read with a 1 MiB limit
+  ([#3400](https://github.com/x402-foundation/x402/pull/3400)), CAIP-2 network ids are
+  validated ([#3285](https://github.com/x402-foundation/x402/pull/3285)), and `zod` is
+  `^4.6.6` for GHSA-mrhx-c7xc-m3w5
+  ([#3983](https://github.com/x402-foundation/x402/pull/3983)).
+- Not in 2.29.0: rejecting non-object JSON payment headers
+  ([#4051](https://github.com/x402-foundation/x402/pull/4051)) and isolating
+  facilitator lifecycle hook errors
+  ([#3151](https://github.com/x402-foundation/x402/pull/3151)) merged after the tag.
+  Re-check them at the next release.
 
 ## Race and replay
 
@@ -230,7 +299,7 @@ request URL and knows nothing about payment. If a paid 200 is cacheable, the cac
 stores it and serves it to the next caller for that URL, paid or not: the content
 leaks for free. Before `@x402/core` 2.21.0 the reference adapters set no cache
 directive at all, so a shared cache was free to store the paid 200. They now send
-`private` on it (surveyed above), which closes that path against any cache that
+`private` on it (surveyed above; unchanged through 2.29.0), which closes that path against any cache that
 honors the directive. Two gaps remain, and they are what the guard's directives
 cover: `private` permits a non-shared cache to store the body, where `no-store`
 permits nobody; and no `Vary` is set, so a cache that stores in spite of the
@@ -243,6 +312,14 @@ to every paid response. `no-store` is load-bearing: any HTTP-conformant cache
 refuses to store it. `private` and `Vary` are defense in depth for a cache that
 stores anyway. The framework binding applies these headers; the `protect` helper
 returns them on a granted decision so the caller does not have to remember to.
+
+The default `Vary` names `X-PAYMENT`, the header x402 v1 used. A v2 client sends
+`PAYMENT-SIGNATURE`, and that is the only payment header the 2.29.0 resource server
+reads
+([`x402HTTPResourceServer.ts:1309`](https://github.com/x402-foundation/x402/blob/e4a086819f419e9395acbbdc1679fe6627029ff7/typescript/packages/core/src/http/x402HTTPResourceServer.ts#L1309)).
+Behind a v2 server, pass `paidResponseCacheDirectives({ paymentHeader:
+"PAYMENT-SIGNATURE" })` so the `Vary` names the header the client actually sends.
+`no-store` does not depend on it.
 
 ### Why `no-store`, not the alternatives
 

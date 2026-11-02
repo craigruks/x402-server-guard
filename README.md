@@ -163,13 +163,17 @@ and honesty (is this a strawman, does the reference actually have these gaps, wh
 this does not do) are answered in
 [`docs/objection-handling.md`](./docs/objection-handling.md).
 
-| Attack class | Status |
-| --- | --- |
-| Duplicate-settlement race | done |
-| Payment replay | done (same nonce reservation) |
-| Cross-resource substitution | done (same nonce reservation, distinct reason) |
-| Grant-before-finality (k-confirmations) | done |
-| Cache leakage of paid content | done |
+| Attack class | Status | Upstream `@x402/core` 2.29.0 |
+| --- | --- | --- |
+| Duplicate-settlement race | done | partly: closed by the opt-in `upfront` flow ([#3053](https://github.com/x402-foundation/x402/pull/3053)), open in the default flow |
+| Payment replay | done (same nonce reservation) | partly, as for the race |
+| Cross-resource substitution | done (same nonce reservation, distinct reason) | partly: `upfront` denies the reuse, nothing binds or flags the resource |
+| Grant-before-finality (k-confirmations) | done | no: success is one inclusion; a hook can now fail it closed ([#3994](https://github.com/x402-foundation/x402/pull/3994)) |
+| Cache leakage of paid content | done | partly: `private` on the paid 200 since 2.21.0 ([#2990](https://github.com/x402-foundation/x402/pull/2990)), no `no-store`, no `Vary` |
+
+The upstream column is a survey, not a dependency: the guard does not call
+`@x402/core`. Evidence for each entry is in
+[`docs/hardening.md`](./docs/hardening.md#what-upstream-now-covers).
 
 ## Development
 
