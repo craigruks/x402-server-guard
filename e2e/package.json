@@ -10,9 +10,9 @@
     "test:hosted": "tsx src/hosted/substitution.ts"
   },
   "dependencies": {
-    "@x402/core": "2.21.0",
-    "@x402/evm": "2.21.0",
-    "@x402/fetch": "2.21.0",
+    "@x402/core": "2.29.0",
+    "@x402/evm": "2.29.0",
+    "@x402/fetch": "2.29.0",
     "dotenv": "18.0.9",
     "viem": "2.57.14"
   },
