@@ -2,6 +2,8 @@ name: Deploy docs
 
 # Build the Starlight site in website/ and deploy it to GitHub Pages on pushes to
 # main that touch the site. The repo's Pages source must be set to "GitHub Actions".
+# Pull requests that touch the site run the build only, so a dependency bump that
+# breaks the docs fails its PR instead of the deploy after merge.
 on:
   push:
     branches: [main]
@@ -11,16 +13,21 @@ on:
       # website/scripts/sync-reference-docs.mjs), so a change here must redeploy.
       - "docs/**"
       - ".github/workflows/docs.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "docs/**"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
-# One Pages deployment at a time; do not cancel an in-flight deploy.
+# One Pages deployment at a time; do not cancel an in-flight deploy. A pull
+# request build gets its own group, so it neither waits on nor blocks a deploy.
 concurrency:
-  group: pages
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.ref) || 'pages' }}
   cancel-in-progress: false
 
 jobs:
@@ -40,12 +47,17 @@ jobs:
           cache-dependency-path: website/package-lock.json
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: website/dist
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
