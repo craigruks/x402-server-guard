@@ -9,9 +9,10 @@
 import { Instance } from "prool";
 
 const FORK_URL = process.env.BASE_SEPOLIA_RPC ?? "https://sepolia.base.org";
-// The public endpoint prunes history, so a pinned block rots: 44036000 began
-// failing with "pruned history unavailable" once the earliest block it serves
-// reached 46500000. If the run fails that way again, move this forward.
+// The public endpoint prunes history, so a pinned block rots. The earliest block
+// it serves moves forward in steps (44500000 on 2026-08-24, 46500000 by
+// 2026-10-26), which is how 44036000 started failing with "pruned history
+// unavailable". If the run fails that way again, move this forward.
 const FORK_BLOCK = BigInt(process.env.FORK_BLOCK ?? "53400000");
 const PORT = Number(process.env.FORK_PORT ?? "8545");
 
