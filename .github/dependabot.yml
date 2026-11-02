@@ -1,4 +1,9 @@
 version: 2
+# One routine PR per directory per week, and at most one security PR per
+# directory. A group applies to version updates unless it says otherwise, so
+# without the `security` groups every advisory against a transitive dependency
+# opened its own PR. That is how 23 PRs piled up by 2026-11 (vite, source-map-js,
+# nanoid, follow-redirects and others, each once per lockfile).
 updates:
   - package-ecosystem: npm
     directory: "/"
@@ -8,6 +13,10 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+      dev-dependencies-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
   # The docs site and the on-chain e2e harness carry their own lockfiles. Without
   # an entry here they get security updates only, never routine ones, so a
   # transitive dependency can sit unpatched until it becomes an advisory.
@@ -22,6 +31,10 @@ updates:
       website:
         patterns:
           - "*"
+      website-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
   - package-ecosystem: npm
     directory: "/e2e"
     schedule:
@@ -29,6 +42,10 @@ updates:
     open-pull-requests-limit: 5
     groups:
       e2e:
+        patterns:
+          - "*"
+      e2e-security:
+        applies-to: security-updates
         patterns:
           - "*"
   - package-ecosystem: github-actions
