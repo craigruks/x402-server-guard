@@ -29,9 +29,22 @@ export function testClient() {
 
 export type ForkTestClient = ReturnType<typeof testClient>;
 
-/** Fund the buyer with test USDC by overriding its balance slot (viem-deal). */
-export function fundBuyer(client: ForkTestClient): Promise<void> {
-  return client.deal({ erc20: config.asset as Hex, account: buyer.address, amount: parseUnits("5", 6) });
+/**
+ * Fund the buyer with test USDC by overriding its balance slot (viem-deal), after
+ * making the buyer and payTo plain EOAs again.
+ *
+ * They are Anvil's well-known dev accounts, whose keys are public, and on Base
+ * Sepolia strangers keep attaching EIP-7702 delegations to them. With code at the
+ * payer, the facilitator verifies the signature through ERC-1271 against whatever
+ * contract is delegated today, and the rig fails with invalid_exact_evm_signature
+ * for reasons that have nothing to do with x402. Clearing the code on the fork
+ * pins the accounts to the EOAs the attacks assume.
+ */
+export async function fundBuyer(client: ForkTestClient): Promise<void> {
+  for (const address of [buyer.address, config.payTo as Hex]) {
+    await client.setCode({ address, bytecode: "0x" });
+  }
+  await client.deal({ erc20: config.asset as Hex, account: buyer.address, amount: parseUnits("5", 6) });
 }
 
 /** Read a USDC balance on the fork. */
