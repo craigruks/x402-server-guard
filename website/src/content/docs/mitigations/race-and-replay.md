@@ -126,6 +126,12 @@ the front door: an atomic reservation before the handler runs, so exactly one re
 proceeds. Two independent papers find this class against Coinbase's official x402 SDKs
 (see the [coverage map](/x402-server-guard/reference/coverage-map/) for citations).
 
+Since `@x402/core` 2.22.0 the reference also has an opt-in way out: a route can choose
+the `upfront` payment flow, which settles before the handler runs, so only the request
+whose settlement wins gets through. It is not the default, because every request then
+waits for an on-chain settlement. The survey of what upstream covers, with evidence, is
+in the [hardening notes](/x402-server-guard/reference/hardening/#what-upstream-now-covers).
+
 ## What proves it
 
 - [`test/attacks/duplicate-settlement-race.test.ts`](https://github.com/craigruks/x402-server-guard/blob/main/test/attacks/duplicate-settlement-race.test.ts):

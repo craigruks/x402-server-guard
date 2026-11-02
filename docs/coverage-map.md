@@ -33,7 +33,12 @@ cross-references to how established off-chain-signature systems (Uniswap permit2
 CoW Protocol, MetaMask `eth-sig-util`, Hyperliquid) handle the same problems are
 in [`docs/hardening.md`](./hardening.md). The surveyed state of the reference
 `x402-foundation/x402` server (which of these holes it leaves open) is documented
-there as the reason this library exists.
+there as the reason this library exists. It was re-checked against `@x402/core`
+2.29.0: no line item is fully closed upstream. Four are partly closed, three of them
+only behind the opt-in `upfront` flow, and grant-before-finality is open. The per-class verdicts and their evidence are
+in [What upstream now covers](./hardening.md#what-upstream-now-covers), proven where
+they changed by
+[`test/attacks/reference-flows.test.ts`](../test/attacks/reference-flows.test.ts).
 
 ## Scope boundary
 

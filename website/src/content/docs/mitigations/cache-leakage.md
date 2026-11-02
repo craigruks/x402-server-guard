@@ -43,6 +43,9 @@ return c.json({ report: { weather: "sunny", temperature: 70 } }, 200);
 - `private` and `Vary: X-PAYMENT` are defense in depth for a cache that stores
   anyway: `private` tells shared caches to keep out, and `Vary` says the response
   depends on the payment header, so it cannot be reused for a different one.
+  `X-PAYMENT` is the x402 v1 header name. An x402 v2 client sends
+  `PAYMENT-SIGNATURE`, so behind a v2 server call
+  `paidResponseCacheDirectives({ paymentHeader: "PAYMENT-SIGNATURE" })`.
 
 `protect()` returns `cacheControl` on a granted decision, so you do not have to
 remember to set it. You still have to apply it to the response; the guard cannot set

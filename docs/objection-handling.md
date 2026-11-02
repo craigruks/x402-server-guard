@@ -18,9 +18,18 @@ the gap between "this payment looks valid" (verify) and "this payment is settled
 (settle). The x402 reference verifies the payment, lets your handler deliver, and
 settles afterward. Fire twenty requests carrying one valid payment at the same
 instant: all twenty pass verify (the nonce is not consumed until a settlement lands),
-all twenty reach delivery, and only one settlement wins. You were paid once and gave
-away the resource twenty times. The guard reserves the nonce atomically at the server,
-before delivery, so exactly one of those twenty proceeds.
+all twenty reach your handler, and only one settlement wins. You were paid once and
+ran the paid work twenty times. The official adapters swap the nineteen losing
+responses for a 402 when their settlement fails, so the body goes out once, but
+anything the handler did (an LLM call, a shipment, a secret released) happened twenty
+times. A server that delivers on `payment-verified` gives away the content itself.
+The guard reserves the nonce atomically at the server, before the handler, so exactly
+one of those twenty proceeds.
+
+Upstream now offers a second way out. Since `@x402/core` 2.22.0 a route can opt into
+the `upfront` flow, which settles before the handler, so only the request whose
+settlement wins gets through. It costs an on-chain wait on every request, and it is
+not the default (see [the survey](./hardening.md#what-upstream-now-covers)).
 
 ### Is this just beating a strawman baseline you wrote?
 
@@ -29,7 +38,7 @@ drive the actual `@x402/core` `x402HTTPResourceServer`, the class integrators sh
 ([`test/attacks/reference-race.test.ts`](../test/attacks/reference-race.test.ts)):
 twenty concurrent `processHTTPRequest` calls for one payment all return
 `payment-verified` with zero settlements, then exactly one settlement wins, so
-nineteen resources are handed out for one payment. Nothing on the grant path is
+nineteen requests reach the handler unpaid. Nothing on the grant path is
 re-implemented; only the facilitator (through x402's real `FacilitatorClient`
 interface) is faked.
 
@@ -57,9 +66,12 @@ anyone to take our word for it.
 
 Because most of what it hardens is x402's intended design, not a bug to patch. x402 is
 optimistic on purpose: settlement is slow, and making every request block on it would
-ruin the agentic-payment experience. The reference correctly leaves "dedupe concurrent
-requests, wait for finality, set cache headers" to the integrator. This is that
-integrator-side layer, for merchants who cannot run optimistically.
+ruin the agentic-payment experience. The reference leaves "dedupe concurrent requests,
+wait for finality, set cache headers" to the integrator by default. It has since added
+pieces of that: `private` on the paid 200 (2.21.0), an opt-in `upfront` flow that
+settles before the handler (2.22.0), and a hook that can fail a settlement closed
+(2.29.0). None of them reserves a nonce off-chain or holds to k confirmations. This is
+that integrator-side layer, for merchants who cannot run optimistically.
 
 ### I'm on Base, do I even need this?
 
@@ -81,12 +93,14 @@ The `authorizationState` mapping makes on-chain replay impossible: a second
 `transferWithAuthorization` with the same nonce reverts. The surface is entirely the
 off-chain window between the facilitator's `/verify` (a read, no state change, returns
 valid for every concurrent caller because the nonce is not consumed yet) and the
-settlement landing. In the reference, that window contains resource delivery, and
-`verify` takes no lock. So the attack is not "replay the payment on-chain," it is
-"extract N deliveries from one authorization during the verify-to-settle window." In
-the reference this is not even timing-sensitive: `processHTTPRequest` (verify, deliver)
-and `processSettlement` are structurally separate calls, so all N verifies necessarily
-precede any settlement. The guard makes nonce reservation an atomic check-and-set at
+settlement landing. In the reference's default flow, that window contains your
+handler, and `verify` takes no lock. So the attack is not "replay the payment on-chain,"
+it is "run the paid handler N times on one authorization during the verify-to-settle
+window." In the default flow this is not even timing-sensitive: `processHTTPRequest`
+(verify, then the handler runs) and `processSettlement` are structurally separate calls,
+so all N verifies necessarily precede any settlement. The opt-in `upfront` flow
+(`@x402/core` 2.22.0) settles inside `processHTTPRequest` instead, which closes the
+window for routes that choose it. The guard makes nonce reservation an atomic check-and-set at
 the server, ahead of delivery, collapsing the window to a single winner.
 
 ### `boundResource` only sets the error code. So substitution is not a separate control, is it?
