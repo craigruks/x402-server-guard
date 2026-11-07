@@ -14,7 +14,7 @@
     "@x402/evm": "2.29.0",
     "@x402/fetch": "2.29.0",
     "dotenv": "18.0.9",
-    "viem": "2.57.14"
+    "viem": "2.57.16"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
@@ -22,7 +22,7 @@
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "viem-deal": "2.0.4",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "overrides": {
     "tar": "7.5.22"
