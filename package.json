@@ -71,9 +71,9 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@biomejs/biome": "2.6.4",
-    "@cloudflare/workers-types": "5.20261102.1",
+    "@cloudflare/workers-types": "5.20261104.1",
     "@types/node": "26.6.6",
-    "@vitest/coverage-v8": "5.0.5",
+    "@vitest/coverage-v8": "5.1.0",
     "@x402/core": "2.29.0",
     "esbuild": "0.28.2",
     "hono": "4.13.16",
@@ -81,7 +81,7 @@
     "publint": "0.3.25",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
